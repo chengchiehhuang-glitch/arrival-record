@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>å°è²¨ç»è¨ç³»çµ±</title>
+<title>到貨登記系統</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -325,142 +325,142 @@ details summary {
 
 <div class="header">
   <div class="header-brand">
-    <div class="header-icon">ð¦</div>
-    <h1>å°è²¨ç»è¨<small>ååº«ç®¡çç³»çµ±</small></h1>
+    <div class="header-icon">📦</div>
+    <h1>到貨登記<small>倉庫管理系統</small></h1>
   </div>
   <div class="sync-badge" id="syncBadge" onclick="showTab('settings')">
     <div class="sync-dot"></div>
-    <span id="syncLabel">æªé£ç·</span>
+    <span id="syncLabel">未連線</span>
   </div>
 </div>
 
 <div class="tab-bar">
-  <button class="tab-btn active" onclick="showTab('scan')" id="tab-scan"><span class="ti">ð·</span>ç»è¨</button>
-  <button class="tab-btn" onclick="showTab('records')" id="tab-records"><span class="ti">ð</span>è¨é</button>
-  <button class="tab-btn" onclick="showTab('stats')" id="tab-stats"><span class="ti">ð</span>çµ±è¨</button>
-  <button class="tab-btn" onclick="showTab('settings')" id="tab-settings"><span class="ti">âï¸</span>è¨­å®</button>
+  <button class="tab-btn active" onclick="showTab('scan')" id="tab-scan"><span class="ti">📷</span>登記</button>
+  <button class="tab-btn" onclick="showTab('records')" id="tab-records"><span class="ti">📋</span>記錄</button>
+  <button class="tab-btn" onclick="showTab('stats')" id="tab-stats"><span class="ti">📊</span>統計</button>
+  <button class="tab-btn" onclick="showTab('settings')" id="tab-settings"><span class="ti">⚙️</span>設定</button>
 </div>
 
-<!-- ââ SCAN ââ -->
+<!-- ══ SCAN ══ -->
 <div class="view active" id="view-scan">
   <div id="offlineNotice" style="display:none;background:#fff3e8;border:1.5px solid #ffd0a0;border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:var(--orange);font-weight:600;">
-    â ï¸ ç®åé¢ç·ï¼å·²æ«å­ <span id="queueCount">0</span> ç­ï¼é£ç·å¾å°èªååæ­¥
+    ⚠️ 目前離線，已暫存 <span id="queueCount">0</span> 筆，連線後將自動同步
   </div>
   <div class="scan-area" id="scanArea" onclick="triggerCamera()">
-    <img id="previewImg" alt="é è¦½">
+    <img id="previewImg" alt="預覽">
     <div class="scan-ph" id="scanPh">
-      <div class="si">ð·</div>
-      <p>é»æææå°è²¨å® / åè£¹</p>
-      <small>æ¯æ´ç¸æ©æç§æç¸ç°¿é¸å</small>
+      <div class="si">📷</div>
+      <p>點擊拍攝到貨單 / 包裹</p>
+      <small>支援相機拍照或相簿選取</small>
     </div>
     <div class="scan-overlay" id="scanOverlay">
       <div class="scan-spinner"></div>
-      <p>Gemini AI è¾¨è­ä¸­â¦</p>
+      <p>Gemini AI 辨識中…</p>
     </div>
   </div>
   <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleImg(event)">
   <div class="btn-row" id="analyzeRow" style="display:none">
-    <button class="btn btn-secondary" style="flex:0.5" onclick="clearImg()">ð éæ</button>
-    <button class="btn btn-google" id="analyzeBtn" onclick="analyzeImage()">â¨ Gemini è¾¨è­</button>
+    <button class="btn btn-secondary" style="flex:0.5" onclick="clearImg()">🔄 重拍</button>
+    <button class="btn btn-google" id="analyzeBtn" onclick="analyzeImage()">✨ Gemini 辨識</button>
   </div>
-  <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="openManual()">âï¸ ç´æ¥æåè¼¸å¥</button>
+  <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="openManual()">✏️ 直接手動輸入</button>
 
   <div class="form-card" id="formCard">
     <div class="form-card-header">
       <span class="gemini-tag">Gemini</span>
-      <span>è¾¨è­çµæ â è«ç¢ºèªå¾å²å­</span>
+      <span>辨識結果 — 請確認後儲存</span>
     </div>
     <div class="form-body">
       <div class="two-col">
         <div class="field-group">
-          <div class="field-label">å¯ä»¶äºº / å» å</div>
-          <input type="text" class="field-input" id="f_sender" placeholder="å» ååç¨±">
+          <div class="field-label">寄件人 / 廠商</div>
+          <input type="text" class="field-input" id="f_sender" placeholder="廠商名稱">
         </div>
         <div class="field-group">
-          <div class="field-label">è¿½è¹¤å®è</div>
-          <input type="text" class="field-input" id="f_tracking" placeholder="å®è">
+          <div class="field-label">追蹤單號</div>
+          <input type="text" class="field-input" id="f_tracking" placeholder="單號">
         </div>
       </div>
       <div class="two-col">
         <div class="field-group">
-          <div class="field-label">ä¾æº / å°å</div>
-          <input type="text" class="field-input" id="f_origin" placeholder="å¯ä»¶å°">
+          <div class="field-label">來源 / 地區</div>
+          <input type="text" class="field-input" id="f_origin" placeholder="寄件地">
         </div>
         <div class="field-group">
-          <div class="field-label">å°è²¨æ¥æ</div>
+          <div class="field-label">到貨日期</div>
           <input type="date" class="field-input" id="f_date">
         </div>
       </div>
       <div class="field-group">
-        <div class="field-label">åé æç´°</div>
+        <div class="field-label">品項明細</div>
         <div class="items-list" id="itemsList"></div>
-        <button class="add-item-btn" onclick="addItem()">ï¼ æ°å¢åé </button>
+        <button class="add-item-btn" onclick="addItem()">＋ 新增品項</button>
       </div>
       <div class="field-group">
-        <div class="field-label">ç»è¨äººå¡</div>
-        <input type="text" class="field-input" id="f_operator" placeholder="ä½ çå§å">
+        <div class="field-label">登記人員</div>
+        <input type="text" class="field-input" id="f_operator" placeholder="你的姓名">
       </div>
       <div class="field-group">
-        <div class="field-label">åè¨»</div>
-        <textarea class="note-input" id="f_note" placeholder="åè£çæ³ãç ´æãç¹æ®åæ³¨â¦"></textarea>
+        <div class="field-label">備註</div>
+        <textarea class="note-input" id="f_note" placeholder="包裝狀況、破損、特殊備注…"></textarea>
       </div>
       <div class="btn-row">
-        <button class="btn btn-secondary" style="flex:0.5" onclick="closeForm()">åæ¶</button>
-        <button class="btn btn-primary" id="saveBtn" onclick="saveRecord()">âï¸ å²å­è³é²ç«¯</button>
+        <button class="btn btn-secondary" style="flex:0.5" onclick="closeForm()">取消</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveRecord()">☁️ 儲存至雮端</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ââ RECORDS ââ -->
+<!-- ══ RECORDS ══ -->
 <div class="view" id="view-records">
   <div class="filter-bar">
-    <input type="text" class="filter-input" id="searchInput" placeholder="ð æå°å» åãå®èãåé â¦" oninput="renderRecords()">
+    <input type="text" class="filter-input" id="searchInput" placeholder="🔍 搜尋廠商、單號、品項…" oninput="renderRecords()">
     <input type="date" class="filter-input" style="flex:0.55" id="dateFilter" oninput="renderRecords()">
   </div>
   <div id="recordsList"></div>
 </div>
 
-<!-- ââ STATS ââ -->
+<!-- ══ STATS ══ -->
 <div class="view" id="view-stats">
   <div class="stats-grid">
-    <div class="stat-card"><div class="stat-val" id="s-total">â</div><div class="stat-label">ç¸½å°è²¨ç­æ¸</div></div>
-    <div class="stat-card"><div class="stat-val" id="s-today">â</div><div class="stat-label">ä»æ¥å°è²¨</div></div>
-    <div class="stat-card"><div class="stat-val" id="s-week">â</div><div class="stat-label">æ¬é±å°è²¨</div></div>
-    <div class="stat-card"><div class="stat-val" id="s-vendors">â</div><div class="stat-label">ä¸åå» åæ¸</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-total">—</div><div class="stat-label">總到貨筆數</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-today">—</div><div class="stat-label">今日到貨</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-week">—</div><div class="stat-label">本週到貨</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-vendors">—</div><div class="stat-label">不同廠商數</div></div>
   </div>
-  <div class="section-title">å¸¸ç¨å» åæè¡</div>
+  <div class="section-title">常用廠商排行</div>
   <div id="vendorList"></div>
   <div style="margin-top:20px">
-    <div class="section-title">å¯åºè³æ</div>
-    <button class="export-btn" onclick="exportCSV()">ð å¯åº CSVï¼çµ¦ä¸»ç®¡ / Excelï¼</button>
-    <button class="export-btn" onclick="fetchAndRefresh()">ð å¾ Google Sheets éæ°è¼å¥</button>
+    <div class="section-title">匯出資料</div>
+    <button class="export-btn" onclick="exportCSV()">📊 匯出 CSV（給主管 / Excel）</button>
+    <button class="export-btn" onclick="fetchAndRefresh()">🔄 從 Google Sheets 重新載入</button>
   </div>
 </div>
 
-<!-- ââ SETTINGS ââ -->
+<!-- ══ SETTINGS ══ -->
 <div class="view" id="view-settings">
 
   <!-- Step 1: Gemini API Key -->
   <div class="setup-banner" id="s1-banner">
     <div class="banner-title">
       <span class="step-pill google" id="s1-pill">Step 1</span>
-      Gemini API Keyï¼AI è¾¨è­ç¨ï¼
+      Gemini API Key（AI 辨識用）
     </div>
     <div class="banner-body">
-      <p>ä½¿ç¨ Google Gemini è¾¨è­å°è²¨å®åçã<strong>åè²»æ¹æ¡æ¯å¤© 1,500 æ¬¡</strong>ï¼ç¨ Google å¸³èå³å¯ç³è«ãKey åªå­å¨æ¨çææ©æ¬å°ã</p>
+      <p>使用 Google Gemini 辨識到貨單圖片。<strong>免費方案每天 1,500 次</strong>，用 Google 帳號即可申請。Key 只存在您的手機本地。</p>
       <div class="input-row">
-        <input type="password" class="field-input" id="geminiKeyInput" placeholder="AIzaâ¦">
-        <button class="btn-save google-btn" onclick="saveGemini()">å²å­</button>
+        <input type="password" class="field-input" id="geminiKeyInput" placeholder="AIza…">
+        <button class="btn-save google-btn" onclick="saveGemini()">儲存</button>
       </div>
-      <div class="status-line" id="s1-status">å°æªè¨­å®</div>
+      <div class="status-line" id="s1-status">尚未設定</div>
       <details>
-        <summary>ð å¦ä½åå¾åè²» Gemini API Keyï¼</summary>
+        <summary>📋 如何取得免費 Gemini API Key？</summary>
         <ol class="help-ol">
-          <li>åå¾ <a href="https://aistudio.google.com/apikey" target="_blank" class="help-link">aistudio.google.com/apikey</a></li>
-          <li>ç¨ Google å¸³èç»å¥</li>
-          <li>é»ãCreate API keyã</li>
-          <li>è¤è£½ Keyï¼AIza éé ­ï¼è²¼å¥ä¸æ¹æ¬ä½</li>
+          <li>前往 <a href="https://aistudio.google.com/apikey" target="_blank" class="help-link">aistudio.google.com/apikey</a></li>
+          <li>用 Google 帳號登入</li>
+          <li>點「Create API key」</li>
+          <li>複製 Key（AIza 開頭）貼入上方欄位</li>
         </ol>
       </details>
     </div>
@@ -470,35 +470,35 @@ details summary {
   <div class="setup-banner" id="s2-banner">
     <div class="banner-title">
       <span class="step-pill google" id="s2-pill">Step 2</span>
-      Google Sheets é²ç«¯è³æåº«
+      Google Sheets 雲端資料庫
     </div>
     <div class="banner-body">
-      <p>é²ç«¯è³æåº«å·²ç±ç®¡çå¡çµ±ä¸è¨­å®ï¼<strong>ä½ ä¸éè¦å¡«ä»»ä½æ±è¥¿</strong>ï¼ç´æ¥é²è¡ Step 3 å³å¯ã</p>
-      <div class="status-line" id="s2-status">æª¢æ¥ä¸­â¦</div>
+      <p>雲端資料庫已由管理員統一設定，<strong>你不需要填任何東西</strong>，直接進行 Step 3 即可。</p>
+      <div class="status-line" id="s2-status">檢查中…</div>
       <details style="margin-top:10px">
-        <summary>ð§ ç®¡çå¡ï¼æ¥çææ´æ° Apps Script URL</summary>
-        <p style="margin-top:8px;font-size:11px;color:var(--text3)">ä¸è¬å¡å·¥ä¸éè¦å¡«éåãåªæç®¡çå å¨éæ°é¨ç½² Apps Script å¾æéæ´æ°ã</p>
+        <summary>🔧 管理員：查看或更新 Apps Script URL</summary>
+        <p style="margin-top:8px;font-size:11px;color:var(--text3)">一般員工不需要填這個。只有管理哠在重新部署 Apps Script 後才需更新。</p>
         <div class="field-group" style="margin-top:8px">
           <div class="input-row">
-            <input type="text" class="field-input" id="gasUrlInput" placeholder="https://script.google.com/macros/s/â¦/exec">
-            <button class="btn-save google-btn" onclick="saveGasUrl()">å²å­åæ´</button>
+            <input type="text" class="field-input" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
+            <button class="btn-save google-btn" onclick="saveGasUrl()">儲存備援</button>
           </div>
         </div>
         <div style="margin-top:12px">
         <details>
-        <summary>ð Apps Script é¨ç½²æ­¥é©</summary>
+        <summary>📋 Apps Script 部署步驟</summary>
         <ol class="help-ol">
-          <li>éå <a href="https://sheets.google.com" target="_blank" class="help-link">Google Sheets</a> æ°å»ºè©¤ç¶è¡¨ï¼å½åãå°è²¨è¨éã</li>
-          <li>é»ä¸æ¹ãæ´ååè½ãâãApps Scriptã</li>
-          <li>åªé¤é è¨­ç¸å¼ç¢¼ï¼è²¼ä¸ä¸æ¹ç¨å¼ç¢¼</li>
-          <li>æãé¨ç½²ãâãæ°å¢é¨ç½²ä½æ¥­ãâ é¡åé¸ãç¶²é æç¨ç¨å¼ã</li>
-          <li>å·è¡èº«åé¸ãæãï¼å­åæ¬é¸ãææäººãâãé¨ç½²ã</li>
-          <li>è¤è£½ Web App URL è²¼å¥ä¸æ¹æ¬ä½</li>
+          <li>開啟 <a href="https://sheets.google.com" target="_blank" class="help-link">Google Sheets</a> 新建試算表，命名「到貨記錄」</li>
+          <li>點上方「擴充功能」→「Apps Script」</li>
+          <li>刪除預訮籋式碼，貼上下方程式碼</li>
+          <li>按「部署」→「新增部署作業」→ 類型選「網頁應用程式」</li>
+          <li>執行身分選「我」，存取權選「所有人」→「部署」</li>
+          <li>複製 Web App URL 貼入上方欄位</li>
         </ol>
         <div class="code-block">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">Apps Script ç¨å¼ç¢¼</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">Apps Script 程式碼</div>
           <pre id="gasCode"></pre>
-          <button class="copy-btn" onclick="copyGasCode()">è¤è£½ç¨å¼ç¢¼</button>
+          <button class="copy-btn" onclick="copyGasCode()">複製程式碼</button>
         </div>
         </details>
         </div>
@@ -510,15 +510,15 @@ details summary {
   <div class="setup-banner">
     <div class="banner-title">
       <span class="step-pill done">Step 3</span>
-      ç»è¨äººå¡å§å
+      登記人員姓名
     </div>
     <div class="banner-body">
-      <p>è¨­å®å¾æ¯æ¬¡ç»è¨èªåå¸¶å¥ï¼ä¸éæ¯æ¬¡è¼¸å¥ã</p>
+      <p>設定後每次登記自動帶入，不需每次輸入。</p>
       <div class="input-row">
-        <input type="text" class="field-input" id="operatorInput" placeholder="ä½ çå§å">
-        <button class="btn-save" onclick="saveOperator()">å²å­</button>
+        <input type="text" class="field-input" id="operatorInput" placeholder="你的姓名">
+        <button class="btn-save" onclick="saveOperator()">儲存</button>
       </div>
-      <div class="status-line" id="s3-status">å°æªè¨­å®</div>
+      <div class="status-line" id="s3-status">尚未設定</div>
     </div>
   </div>
 
@@ -527,8 +527,8 @@ details summary {
 <div class="toast" id="toast"></div>
 
 <script>
-// ââ GAS Code ââ
-const GAS_CODE = `const SHEET_NAME = "å°è²¨è¨é";
+// ── GAS Code ──
+const GAS_CODE = `const SHEET_NAME = "到貨記錄";
 
 function doPost(e) {
   try {
@@ -537,8 +537,8 @@ function doPost(e) {
     let sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
-      const headers = ["è¨éID","å°è²¨æ¥æ","å¯ä»¶å» å","è¿½è¹¤å®è",
-        "ä¾æºå°","åé ","æ¸é","å®ä½","ç»è¨äººå¡","åè¨»","å»ºç«æé"];
+      const headers = ["記錄ID","到貨日期","寄件廠商","追蹤單號",
+        "來源地","品項","數量","單位","登記人員","備註","建立時間"];
       sheet.appendRow(headers);
       sheet.getRange(1,1,1,headers.length)
         .setFontWeight("bold")
@@ -582,23 +582,23 @@ function doGet(e) {
 
 document.getElementById('gasCode').textContent = GAS_CODE;
 function copyGasCode() {
-  navigator.clipboard.writeText(GAS_CODE).then(() => showToast('ç¨å¼ç¢¼å·²è¤å½ â', 'ok'));
+  navigator.clipboard.writeText(GAS_CODE).then(() => showToast('程式碼已複製 ✓', 'ok'));
 }
 
-// ââ Storage helpers ââ
+// ── Storage helpers ──
 function ls(k, v) {
   if (v === undefined) return localStorage.getItem(k) || '';
   localStorage.setItem(k, v);
 }
 
-// ââââââââââââââââââââââââââââââââââââââ
-// â¼ ç®¡çå¡å¨éè£¡å¡«å¥ GAS URLï¼ä¸æ¬¡è¨­å®ï¼ææäººå±ç¨ï¼
-const SHARED_GAS_URL = "https://script.google.com/macros/s/AKfycbwenZM1k4DtwAaZMZadF5Xx3Qw68mPE7bc8LFFbMdQFzRzy4Q7ZI1laSONnlSJyjR0L/exec";   // å·²è¨­å® Apps Script Web App URL
-// ââââââââââââââââââââââââââââââââââââââ
+// ══════════════════════════════════════
+// ▼ 管理員在這裡填入 GAS URL（一次設定，所有人共用）
+const SHARED_GAS_URL = "https://script.google.com/macros/s/AKfycbwenZM1k4DtwAaZMZadF5Xx3Qw68mPE7bc8LFFbMdQFzRzy4Q7ZI1laSONnlSJyjR0L/exec";   // 已設定 Apps Script Web App URL
+// ══════════════════════════════════════
 
 const CFG = {
   get geminiKey() { return ls('geminiKey'); },
-  get gasUrl()    { return SHARED_GAS_URL || ls('gasUrl'); },  // åªåç¨å¯«æ­»çï¼åæ´ç¨æ¬æ©
+  get gasUrl()    { return SHARED_GAS_URL || ls('gasUrl'); },  // 優先用寫死的，備援用本機
   get operator()  { return ls('operatorName'); }
 };
 
@@ -606,21 +606,21 @@ let records = [];
 let offlineQueue = [];
 let currentB64 = null;
 
-// ââ Settings ââ
+// ── Settings ──
 function saveGemini() {
   const k = document.getElementById('geminiKeyInput').value.trim();
-  if (!k.startsWith('AIza')) { showToast('æ ¼å¼ä¸æ­£ç¢ºï¼éä»¥ AIza éé ­ï¼', 'err'); return; }
+  if (!k.startsWith('AIza')) { showToast('格式不正確（需以 AIza 開頭）', 'err'); return; }
   ls('geminiKey', k);
   updateSettingsUI();
-  showToast('Gemini API Key å·²å²å­ â', 'ok');
+  showToast('Gemini API Key 已儲存 ✓', 'ok');
 }
 function saveGasUrl() {
   const v = document.getElementById('gasUrlInput').value.trim();
-  if (!v.startsWith('https://script.google.com')) { showToast('URL æ ¼å¼ä¸æ­£ç¢º', 'err'); return; }
+  if (!v.startsWith('https://script.google.com')) { showToast('URL 格式不正確', 'err'); return; }
   ls('gasUrl', v);
   updateSettingsUI();
   flushQueue();
-  showToast('Apps Script URL å·²å²å­ â', 'ok');
+  showToast('Apps Script URL 已儲存 ✓', 'ok');
 }
 function saveOperator() {
   const v = document.getElementById('operatorInput').value.trim();
@@ -628,23 +628,23 @@ function saveOperator() {
   ls('operatorName', v);
   document.getElementById('f_operator').value = v;
   updateSettingsUI();
-  showToast(`ç»è¨äººå¡ã${v}ãå·²è¨­å® â`, 'ok');
+  showToast(`登記人員「${v}」已設定 ✓`, 'ok');
 }
 
 function updateSettingsUI() {
   const gk = CFG.geminiKey, gu = CFG.gasUrl, op = CFG.operator;
-  setStatus('s1-status', gk, gk ? 'â Gemini Key å·²è¨­å®ï¼åè²»æ¹æ¡ï¼' : 'å°æªè¨­å®');
-  // Step 2: GAS URL ç±ç¨å¼ç¢¼çµ±ä¸ç®¡ç
+  setStatus('s1-status', gk, gk ? '✓ Gemini Key 已設定（免費方案）' : '尚未設定');
+  // Step 2: GAS URL 由程式碼統一管理
   if (SHARED_GAS_URL) {
-    setStatus('s2-status', true, 'â é²ç«¯è³æåº«å·²é£ç·ï¼ç®¡çå¡çµ±ä¸è¨­å®ï¼');
+    setStatus('s2-status', true, '✅ 雲端資料庫已連線（管理員統一設定）');
     markDone('s2-pill');
   } else if (ls('gasUrl')) {
-    setStatus('s2-status', true, 'â ä½¿ç¨æ¬æ©åæ´ URL');
+    setStatus('s2-status', true, '✓ 使用本機備援 URL');
     markDone('s2-pill');
   } else {
-    setStatus('s2-status', false, 'â ï¸ å°æªè¨­å®ï¼è«éç¥ç®¡çå¡æ´æ°ç¨å¼ç¢¼ï¼');
+    setStatus('s2-status', false, '⚠️ 尚未設定（請通知管理員更新程式碼）');
   }
-  setStatus('s3-status', op, op ? `â ${op}` : 'å°æªè¨­å®');
+  setStatus('s3-status', op, op ? `✓ ${op}` : '尚未設定');
   if (gk) { document.getElementById('geminiKeyInput').value = gk; markDone('s1-pill'); }
   if (ls('gasUrl')) document.getElementById('gasUrlInput').value = ls('gasUrl');
   if (op) { document.getElementById('operatorInput').value = op; document.getElementById('f_operator').value = op; }
@@ -656,19 +656,19 @@ function setStatus(id, ok, msg) {
 }
 function markDone(id) {
   const el = document.getElementById(id);
-  el.textContent = 'â'; el.className = 'step-pill done';
+  el.textContent = '✓'; el.className = 'step-pill done';
 }
 function updateSyncBadge() {
   const badge = document.getElementById('syncBadge');
   const label = document.getElementById('syncLabel');
   if (CFG.gasUrl) {
-    badge.className = 'sync-badge'; label.textContent = 'é²ç«¯é£ç·';
+    badge.className = 'sync-badge'; label.textContent = '雲端連線';
   } else {
-    badge.className = 'sync-badge offline'; label.textContent = 'æªè¨­å®';
+    badge.className = 'sync-badge offline'; label.textContent = '未設定';
   }
 }
 
-// ââ Camera ââ
+// ── Camera ──
 function triggerCamera() {
   if (document.getElementById('formCard').classList.contains('show')) return;
   document.getElementById('fileInput').click();
@@ -701,17 +701,17 @@ function clearImg() {
 function openManual() { populateForm({}); document.getElementById('formCard').classList.add('show'); }
 function closeForm() { document.getElementById('formCard').classList.remove('show'); clearImg(); }
 
-// ââ Gemini AI Analyze ââ
+// ── Gemini AI Analyze ──
 async function analyzeImage() {
   if (!currentB64) return;
-  if (!CFG.geminiKey) { showToast('è«åå¨è¨­å®é å¡«å¥ Gemini API Key', 'err'); return; }
+  if (!CFG.geminiKey) { showToast('請先在設定頁填入 Gemini API Key', 'err'); return; }
 
   document.getElementById('scanOverlay').classList.add('show');
   document.getElementById('analyzeBtn').disabled = true;
 
-  const prompt = `åæéå¼µå°è²¨å®æåè£¹ç§çï¼æåè³è¨å¾åªåå³ç´ JSONï¼ä¸è¦å ä»»ä½èªªææå­æ markdownï¼
-{"sender":"å¯ä»¶äººæå» ååç¨±","tracking":"è¿½è¹¤å®è","origin":"ä¾æºå°","items":[{"name":"åé åç¨±","qty":"æ¸é(ç´æ¸å­)","unit":"å®ä½å¦åç®±å·kg"}],"note":"å¶ä»åæ³¨"}
-è¥ç¡æ³è¾¨è­ææ¬ä½è«å¡«ç©ºå­ä¸²ãitems è¥è¾¨è­ä¸å°ååå³ç©ºé£å []ã`;
+  const prompt = `分析這張到貨單或包裹照片，提取資訊後只回傳純 JSON，不要加任何說明文字或 markdown：
+{"sender":"寄件人或廠商名稱","tracking":"追蹤單號","origin":"來源地","items":[{"name":"品項名稱","qty":"數量(純數字)","unit":"單位如個箱卷kg"}],"note":"其他備注"}
+若無法辨識某欄位請填空字串。items 若辨識不到則回傳空陣列 []。`;
 
   try {
     const res = await fetch(
@@ -741,13 +741,13 @@ async function analyzeImage() {
     const clean = txt.replace(/```json\n?|\n?```/g, '').trim();
     populateForm(JSON.parse(clean));
     document.getElementById('formCard').classList.add('show');
-    showToast('Gemini è¾¨è­å®æ â', 'ok');
+    showToast('Gemini 辨識完成 ✓', 'ok');
 
   } catch (err) {
     console.error(err);
     populateForm({});
     document.getElementById('formCard').classList.add('show');
-    showToast('è¾¨è­å¤±æï¼' + err.message.slice(0, 40), 'err');
+    showToast('辨識失敗：' + err.message.slice(0, 40), 'err');
   } finally {
     document.getElementById('scanOverlay').classList.remove('show');
     document.getElementById('analyzeBtn').disabled = false;
@@ -771,19 +771,19 @@ function addItem(name='', qty='', unit='') {
   const row = document.createElement('div');
   row.className = 'item-row';
   row.innerHTML = `
-    <input class="item-input" type="text" placeholder="åé åç¨±" value="${esc(name)}">
-    <input class="item-input" type="number" placeholder="æ¸é" value="${esc(qty)}" min="0" style="text-align:center">
-    <input class="item-input" type="text" placeholder="å®ä½" value="${esc(unit)}">
-    <button class="del-btn" onclick="this.parentElement.remove()">â</button>`;
+    <input class="item-input" type="text" placeholder="品項名稱" value="${esc(name)}">
+    <input class="item-input" type="number" placeholder="數量" value="${esc(qty)}" min="0" style="text-align:center">
+    <input class="item-input" type="text" placeholder="單位" value="${esc(unit)}">
+    <button class="del-btn" onclick="this.parentElement.remove()">✕</button>`;
   list.appendChild(row);
 }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
-// ââ Save â Sheets ââ
+// ── Save → Sheets ──
 async function saveRecord() {
   const sender = document.getElementById('f_sender').value.trim();
   const tracking = document.getElementById('f_tracking').value.trim();
-  if (!sender && !tracking) { showToast('è«å¡«å¯«å¯ä»¶å» åæè¿½è¹¤å®è', 'err'); return; }
+  if (!sender && !tracking) { showToast('請填寫寄件廠商或追蹤單號', 'err'); return; }
 
   const rows = document.querySelectorAll('#itemsList .item-row');
   const items = [];
@@ -795,12 +795,12 @@ async function saveRecord() {
 
   const record = {
     id: 'REC-' + Date.now().toString(36).toUpperCase(),
-    sender: sender || 'æªç¥',
-    tracking: tracking || 'â',
+    sender: sender || '未知',
+    tracking: tracking || '—',
     origin: document.getElementById('f_origin').value.trim(),
     date: document.getElementById('f_date').value || today(),
     items,
-    operator: document.getElementById('f_operator').value.trim() || 'æªç¥',
+    operator: document.getElementById('f_operator').value.trim() || '未知',
     note: document.getElementById('f_note').value.trim(),
     createdAt: new Date().toISOString()
   };
@@ -809,19 +809,19 @@ async function saveRecord() {
   saveLocal();
   closeForm();
   updateStats();
-  showToast('å²å­ä¸­â¦');
+  showToast('儲存中…');
 
   document.getElementById('saveBtn').disabled = true;
   const ok = await pushToSheets(record);
   document.getElementById('saveBtn').disabled = false;
 
   if (ok) {
-    showToast('â å·²åæ­¥è³ Google Sheets', 'ok');
+    showToast('✓ 已同步至 Google Sheets', 'ok');
   } else {
     offlineQueue.push(record);
     saveQueueLocal();
     showOfflineNotice();
-    showToast('å·²æ«å­ï¼é£ç·å¾èªååæ­¥', 'err');
+    showToast('已暫存，連線後自動同步', 'err');
   }
 }
 
@@ -837,7 +837,7 @@ async function pushToSheets(record) {
 async function flushQueue() {
   if (!offlineQueue.length || !CFG.gasUrl) return;
   document.getElementById('syncBadge').className = 'sync-badge syncing';
-  document.getElementById('syncLabel').textContent = 'åæ­¥ä¸­â¦';
+  document.getElementById('syncLabel').textContent = '同步中…';
   const failed = [];
   for (const rec of offlineQueue) {
     const ok = await pushToSheets(rec);
@@ -846,41 +846,41 @@ async function flushQueue() {
   offlineQueue = failed;
   saveQueueLocal();
   if (!failed.length) {
-    showToast('é¢ç·æ«å­å·²å¨é¨åæ­¥ â', 'ok');
+    showToast('離線暫存已全部同步 ✓', 'ok');
     document.getElementById('offlineNotice').style.display = 'none';
   } else showOfflineNotice();
   updateSyncBadge();
 }
 
 async function fetchAndRefresh() {
-  if (!CFG.gasUrl) { showToast('è«åè¨­å® Apps Script URL', 'err'); return; }
-  showToast('è¼å¥ä¸­â¦');
+  if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
+  showToast('載入中…');
   try {
     const res = await fetch(CFG.gasUrl);
     const d = await res.json();
-    if (!d.rows) throw new Error('æ ¼å¼é¯èª¤');
+    if (!d.rows) throw new Error('格式錯誤');
     const grouped = {};
     d.rows.forEach(r => {
-      const id = r['è¨éID'] || '';
+      const id = r['記錄ID'] || '';
       if (!id) return;
       if (!grouped[id]) {
         grouped[id] = {
-          id, sender: r['å¯ä»¶å» å']||'', tracking: r['è¿½è¹¤å®è']||'â',
-          origin: r['ä¾æºå°']||'', date: String(r['å°è²¨æ¥æ']||'').split('T')[0],
-          operator: r['ç»è¨äººå¡']||'', note: r['åè¨»']||'',
-          createdAt: r['å»ºç«æé']||'', items: []
+          id, sender: r['寄件廠商']||'', tracking: r['追蹤單號']||'—',
+          origin: r['來源地']||'', date: String(r['到貨日期']||'').split('T')[0],
+          operator: r['登記人員']||'', note: r['備註']||'',
+          createdAt: r['建立時間']||'', items: []
         };
       }
-      if (r['åé ']) grouped[id].items.push({ name: r['åé '], qty: String(r['æ¸é']||''), unit: r['å®ä½']||'' });
+      if (r['品項']) grouped[id].items.push({ name: r['品項'], qty: String(r['數量']||''), unit: r['單位']||'' });
     });
     records = Object.values(grouped).sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
     saveLocal(); updateStats();
     if (document.getElementById('view-records').classList.contains('active')) renderRecords();
-    showToast(`å·²è¼å¥ ${records.length} ç­è¨é â`, 'ok');
-  } catch(e) { showToast('è¼å¥å¤±æï¼' + e.message, 'err'); }
+    showToast(`已載入 ${records.length} 筆記錄 ✓`, 'ok');
+  } catch(e) { showToast('載入失敗：' + e.message, 'err'); }
 }
 
-// ââ Local Cache ââ
+// ── Local Cache ──
 function saveLocal() { try { localStorage.setItem('arrival-records', JSON.stringify(records)); } catch {} }
 function loadLocal() { try { records = JSON.parse(localStorage.getItem('arrival-records') || '[]'); } catch { records = []; } }
 function saveQueueLocal() { try { localStorage.setItem('arrival-queue', JSON.stringify(offlineQueue)); } catch {} }
@@ -890,7 +890,7 @@ function showOfflineNotice() {
   document.getElementById('queueCount').textContent = offlineQueue.length;
 }
 
-// ââ Records ââ
+// ── Records ──
 function renderRecords() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const df = document.getElementById('dateFilter').value;
@@ -901,7 +901,7 @@ function renderRecords() {
   });
   const c = document.getElementById('recordsList');
   if (!filtered.length) {
-    c.innerHTML = `<div class="empty-state"><div class="ei">ð­</div><p>æ²æç¬¦åçè¨é</p></div>`;
+    c.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>沒有符合的記錄</p></div>`;
     return;
   }
   c.innerHTML = filtered.map(r => `
@@ -910,32 +910,32 @@ function renderRecords() {
         <div>
           <div class="rec-id">${r.id}</div>
           <div class="rec-sender">${r.sender}</div>
-          <div class="rec-meta"><span>ð ${r.date}</span><span>ð ${r.tracking}</span></div>
+          <div class="rec-meta"><span>📅 ${r.date}</span><span>🚚 ${r.tracking}</span></div>
         </div>
         <div class="rec-right">
-          <span class="rec-cnt">${r.items.length} é </span>
+          <span class="rec-cnt">${r.items.length} 項</span>
           ${r.operator ? `<span class="rec-op">${r.operator}</span>` : ''}
         </div>
       </div>
       <div class="record-body" id="rb-${r.id}">
-        ${r.origin ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">ð ${r.origin}</div>` : ''}
+        ${r.origin ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">📍 ${r.origin}</div>` : ''}
         <table class="rec-items-table">
-          ${r.items.length ? r.items.map(i=>`<tr><td>${i.name}</td><td>${i.qty} ${i.unit}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text3)">ç¡åé </td></tr>'}
+          ${r.items.length ? r.items.map(i=>`<tr><td>${i.name}</td><td>${i.qty} ${i.unit}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text3)">無品項</td></tr>'}
         </table>
-        ${r.note ? `<div class="rec-note">ð¬ ${r.note}</div>` : ''}
-        <div><button class="rec-del-btn" onclick="deleteRec('${r.id}')">ð åªé¤æ¬æ©</button></div>
+        ${r.note ? `<div class="rec-note">💬 ${r.note}</div>` : ''}
+        <div><button class="rec-del-btn" onclick="deleteRec('${r.id}')">🗑 刪除本機</button></div>
       </div>
     </div>`).join('');
 }
 function toggleRec(id) { document.getElementById('rb-'+id)?.classList.toggle('open'); }
 function deleteRec(id) {
-  if (!confirm('åªé¤æ¬æ©æ­¤ç­è¨éï¼ï¼Google Sheets ä¸åå½±é¿ï¼')) return;
+  if (!confirm('刪除本機此笆記錄？（Google Sheets 不受影響）')) return;
   records = records.filter(r => r.id !== id);
   saveLocal(); renderRecords(); updateStats();
-  showToast('å·²å¾æ¬æ©ç§»é¤');
+  showToast('已從本機移除');
 }
 
-// ââ Stats ââ
+// ── Stats ──
 function updateStats() {
   const t = today();
   const weekAgo = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
@@ -947,14 +947,14 @@ function updateStats() {
   document.getElementById('s-vendors').textContent = Object.keys(vendors).length;
   const sorted = Object.entries(vendors).sort((a,b)=>b[1]-a[1]).slice(0,8);
   document.getElementById('vendorList').innerHTML = sorted.map(([n,c])=>`
-    <div class="sender-row"><span class="sender-name">${n}</span><span class="sender-cnt">${c} ç­</span></div>
-  `).join('') || '<div style="color:var(--text3);font-size:13px;padding:8px">å°ç¡è³æ</div>';
+    <div class="sender-row"><span class="sender-name">${n}</span><span class="sender-cnt">${c} 筆</span></div>
+  `).join('') || '<div style="color:var(--text3);font-size:13px;padding:8px">尚無資料</div>';
 }
 
-// ââ Export CSV ââ
+// ── Export CSV ──
 function exportCSV() {
-  if (!records.length) { showToast('æ²æè³æ', 'err'); return; }
-  const h = ['è¨éID','æ¥æ','å¯ä»¶å» å','è¿½è¹¤å®è','ä¾æºå°','åé ','æ¸é','å®ä½','ç»è¨äººå¡','åè¨»'];
+  if (!records.length) { showToast('沒有資料', 'err'); return; }
+  const h = ['記錄ID','日期','寄件廠商','追蹤單號','來源地','品項','數量','單位','登記人員','備診'];
   const rows = [];
   records.forEach(r => {
     if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.origin,'','','',r.operator,r.note]);
@@ -963,11 +963,11 @@ function exportCSV() {
   const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `å°è²¨è¨é_${today()}.csv`; a.click();
-  showToast('CSV å·²ä¸è¼ â', 'ok');
+  a.download = `到貨記錄_${today()}.csv`; a.click();
+  showToast('CSV 已下載 ✓', 'ok');
 }
 
-// ââ Tab ââ
+// ── Tab ──
 function showTab(name) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -977,17 +977,17 @@ function showTab(name) {
   if (name==='stats') updateStats();
 }
 
-// ââ Toast ââ
+// ── Toast ──
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show'+(type?' '+type:'');
   clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'),2600);
 }
 
-// ââ Helpers ââ
+// ── Helpers ──
 function today() { return new Date().toISOString().split('T')[0]; }
 
-// ââ Init ââ
+// ── Init ──
 document.getElementById('f_date').value = today();
 loadLocal(); loadQueueLocal();
 updateSettingsUI(); updateStats();
