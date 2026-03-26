@@ -383,6 +383,15 @@ details summary {
       </div>
       <div class="two-col">
         <div class="field-group">
+          <div class="field-label">託運公司</div>
+          <input type="text" class="field-input" id="f_carrier" placeholder="如：大榮、新竹、順豐…" list="carrierList">
+          <datalist id="carrierList">
+            <option value="大榮貨運"><option value="新竹物流"><option value="順豐速運">
+            <option value="黑貓宅急便"><option value="台灣宅配通"><option value="中華郵政">
+            <option value="嘉里大榮"><option value="FedEx"><option value="DHL"><option value="UPS">
+          </datalist>
+        </div>
+        <div class="field-group">
           <div class="field-label">來源 / 地區</div>
           <input type="text" class="field-input" id="f_origin" placeholder="寄件地">
         </div>
@@ -709,9 +718,16 @@ async function analyzeImage() {
   document.getElementById('scanOverlay').classList.add('show');
   document.getElementById('analyzeBtn').disabled = true;
 
-  const prompt = `分析這張到貨單或包裹照片，提取資訊後只回傳純 JSON，不要加任何說明文字或 markdown：
-{"sender":"寄件人或廠商名稱","tracking":"追蹤單號","origin":"來源地","items":[{"name":"品項名稱","qty":"數量(純數字)","unit":"單位如個箱卷kg"}],"note":"其他備注"}
-若無法辨識某欄位請填空字串。items 若辨識不到則回傳空陣列 []。`;
+  const prompt = `你是一個倉庫到貨辨識助手。分析這張到貨單、包裹面單或物流單據的照片，提取以下資訊並回傳 JSON。
+欄位說明：
+- sender: 寄件人或廠商名稱
+- tracking: 追蹤單號/託運單號
+- carrier: 託運公司/物流公司（例如：大榮貨運、新竹物流、順豐速運、黑貓宅急便、中華郵政、FedEx、DHL等）
+- origin: 來源地/寄件地址
+- items: 品項明細陣列，每項含 name(品名), qty(數量純數字), unit(單位如個箱卷kg)
+- note: 其他備注資訊
+若無法辨識某欄位請填空字串。items 若辨識不到則回傳空陣列 []。
+範例格式：{"sender":"","tracking":"","carrier":"","origin":"","items":[],"note":""}`;
 
   try {
     const res = await fetch(
@@ -726,7 +742,7 @@ async function analyzeImage() {
               { text: prompt }
             ]
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 2048, responseMimeType: 'application/json' }
         })
       }
     );
@@ -738,8 +754,14 @@ async function analyzeImage() {
 
     const d = await res.json();
     const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    const clean = txt.replace(/```json\n?|\n?```/g, '').trim();
-    populateForm(JSON.parse(clean));
+    let clean = txt.replace(/```json\n?|\n?```/g, '').trim();
+    // 嘗試提取第一個完整 JSON 物件
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) clean = m[0];
+    let parsed;
+    try { parsed = JSON.parse(clean); }
+    catch { parsed = JSON.parse(clean.replace(/,\s*([}\]])/g, '$1')); }
+    populateForm(parsed);
     document.getElementById('formCard').classList.add('show');
     showToast('Gemini 辨識完成 ✓', 'ok');
 
@@ -757,6 +779,7 @@ async function analyzeImage() {
 function populateForm(r) {
   document.getElementById('f_sender').value = r.sender || '';
   document.getElementById('f_tracking').value = r.tracking || '';
+  document.getElementById('f_carrier').value = r.carrier || '';
   document.getElementById('f_origin').value = r.origin || '';
   document.getElementById('f_date').value = today();
   document.getElementById('f_note').value = r.note || '';
@@ -797,6 +820,7 @@ async function saveRecord() {
     id: 'REC-' + Date.now().toString(36).toUpperCase(),
     sender: sender || '未知',
     tracking: tracking || '—',
+    carrier: document.getElementById('f_carrier').value.trim(),
     origin: document.getElementById('f_origin').value.trim(),
     date: document.getElementById('f_date').value || today(),
     items,
@@ -895,7 +919,7 @@ function renderRecords() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const df = document.getElementById('dateFilter').value;
   const filtered = records.filter(r => {
-    const ms = !q || [r.sender,r.tracking,r.origin,r.operator,...r.items.map(i=>i.name)].some(v=>(v||'').toLowerCase().includes(q));
+    const ms = !q || [r.sender,r.tracking,r.carrier,r.origin,r.operator,...r.items.map(i=>i.name)].some(v=>(v||'').toLowerCase().includes(q));
     const md = !df || r.date === df;
     return ms && md;
   });
@@ -910,7 +934,7 @@ function renderRecords() {
         <div>
           <div class="rec-id">${r.id}</div>
           <div class="rec-sender">${r.sender}</div>
-          <div class="rec-meta"><span>📅 ${r.date}</span><span>🚚 ${r.tracking}</span></div>
+          <div class="rec-meta"><span>📅 ${r.date}</span><span>🚚 ${r.tracking}</span>${r.carrier ? `<span>🏢 ${r.carrier}</span>` : ''}</div>
         </div>
         <div class="rec-right">
           <span class="rec-cnt">${r.items.length} 項</span>
@@ -954,11 +978,11 @@ function updateStats() {
 // ── Export CSV ──
 function exportCSV() {
   if (!records.length) { showToast('沒有資料', 'err'); return; }
-  const h = ['記錄ID','日期','寄件廠商','追蹤單號','來源地','品項','數量','單位','登記人員','備診'];
+  const h = ['記錄ID','日期','寄件廠商','追蹤單號','託運公司','來源地','品項','數量','單位','登記人員','備診'];
   const rows = [];
   records.forEach(r => {
-    if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.origin,'','','',r.operator,r.note]);
-    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.origin,i.name,i.qty,i.unit,r.operator,r.note]));
+    if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.carrier,r.origin,'','','',r.operator,r.note]);
+    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.carrier,r.origin,i.name,i.qty,i.unit,r.operator,r.note]));
   });
   const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
