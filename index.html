@@ -742,7 +742,32 @@ async function analyzeImage() {
               { text: prompt }
             ]
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'object',
+              properties: {
+                sender:   { type: 'string' },
+                tracking: { type: 'string' },
+                carrier:  { type: 'string' },
+                origin:   { type: 'string' },
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      qty:  { type: 'string' },
+                      unit: { type: 'string' }
+                    }
+                  }
+                },
+                note: { type: 'string' }
+              }
+            }
+          }
         })
       }
     );
@@ -760,7 +785,13 @@ async function analyzeImage() {
     if (m) clean = m[0];
     let parsed;
     try { parsed = JSON.parse(clean); }
-    catch { parsed = JSON.parse(clean.replace(/,\s*([}\]])/g, '$1')); }
+    catch {
+      let fixed = clean
+        .replace(/,\s*([}\]])/g, '$1')
+        .replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+      try { parsed = JSON.parse(fixed); }
+      catch { parsed = {}; }
+    }
     populateForm(parsed);
     document.getElementById('formCard').classList.add('show');
     showToast('Gemini 辨識完成 ✓', 'ok');
