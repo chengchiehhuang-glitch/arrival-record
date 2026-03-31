@@ -232,6 +232,22 @@ details summary {
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s;
 }
 .add-item-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+/* 追蹤單號多欄位 */
+#trackingFields { display: flex; flex-direction: column; gap: 6px; }
+#trackingFields .tracking-row { display: flex; gap: 6px; align-items: center; }
+#trackingFields .tracking-row .field-input { flex: 1; }
+#trackingFields .tracking-row .del-tracking-btn {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s; flex-shrink: 0;
+}
+#trackingFields .tracking-row .del-tracking-btn:hover { color: var(--warn); }
+.add-tracking-btn {
+  background: none; border: 1.5px dashed var(--border2); border-radius: 8px;
+  color: var(--text3); font-size: 12px; padding: 6px; cursor: pointer; width: 100%;
+  font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s; margin-top: 6px;
+}
+.add-tracking-btn:hover { border-color: var(--accent); color: var(--accent); }
+.add-tracking-btn.hidden { display: none; }
 .note-input {
   width: 100%; padding: 10px 12px; background: var(--surface2); border: 1.5px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text); font-size: 13px;
@@ -378,7 +394,10 @@ details summary {
         </div>
         <div class="field-group">
           <div class="field-label">追蹤單號</div>
-          <input type="text" class="field-input" id="f_tracking" placeholder="單號">
+          <div id="trackingFields">
+            <input type="text" class="field-input tracking-input" id="f_tracking_1" placeholder="單號 1">
+          </div>
+          <button type="button" class="add-tracking-btn" id="addTrackingBtn" onclick="addTrackingField()">＋ 新增單號</button>
         </div>
       </div>
       <div class="two-col">
@@ -386,6 +405,7 @@ details summary {
           <div class="field-label">託運公司</div>
           <input type="text" class="field-input" id="f_carrier" placeholder="如：大榮、新竹、順豐…" list="carrierList">
           <datalist id="carrierList">
+            <option value="巧巧郎集運"><option value="締惠盛合物流">
             <option value="大榮貨運"><option value="新竹物流"><option value="順豐速運">
             <option value="黑貓宅急便"><option value="台灣宅配通"><option value="中華郵政">
             <option value="嘉里大榮"><option value="FedEx"><option value="DHL"><option value="UPS">
@@ -721,13 +741,14 @@ async function analyzeImage() {
   const prompt = `你是一個倉庫到貨辨識助手。分析這張到貨單、包裹面單或物流單據的照片，提取以下資訊並回傳 JSON。
 欄位說明：
 - sender: 寄件人或廠商名稱
-- tracking: 追蹤單號/託運單號
-- carrier: 託運公司/物流公司（例如：大榮貨運、新竹物流、順豐速運、黑貓宅急便、中華郵政、FedEx、DHL等）
+- tracking: 追蹤單號/託運單號（若有多個單號，用陣列回傳，例如 ["ABC123","DEF456"]；若只有一個則回傳字串）
+- carrier: 託運公司/物流公司（例如：巧巧郎集運、締惠盛合物流、大榮貨運、新竹物流、順豐速運、黑貓宅急便、中華郵政、FedEx、DHL等）
 - origin: 來源地/寄件地址
 - items: 品項明細陣列，每項含 name(品名), qty(數量純數字), unit(單位如個箱卷kg)
 - note: 其他備注資訊
 若無法辨識某欄位請填空字串。items 若辨識不到則回傳空陣列 []。
-範例格式：{"sender":"","tracking":"","carrier":"","origin":"","items":[],"note":""}`;
+範例格式：{"sender":"","tracking":["單號1","單號2"],"carrier":"","origin":"","items":[],"note":""}
+若只有一個追蹤單號也可回傳字串："tracking":"ABC123"`;
 
   try {
     const res = await fetch(
@@ -809,16 +830,56 @@ async function analyzeImage() {
 
 function populateForm(r) {
   document.getElementById('f_sender').value = r.sender || '';
-  document.getElementById('f_tracking').value = r.tracking || '';
   document.getElementById('f_carrier').value = r.carrier || '';
   document.getElementById('f_origin').value = r.origin || '';
   document.getElementById('f_date').value = today();
   document.getElementById('f_note').value = r.note || '';
   document.getElementById('f_operator').value = CFG.operator;
+  // 追蹤單號（支援舊格式字串與新格式陣列）
+  resetTrackingFields();
+  const tArr = Array.isArray(r.tracking) ? r.tracking
+              : (r.tracking && r.tracking !== '—') ? [r.tracking] : [''];
+  document.getElementById('f_tracking_1').value = tArr[0] || '';
+  for (let i = 1; i < tArr.length; i++) addTrackingField(tArr[i]);
+  // 品項
   const list = document.getElementById('itemsList');
   list.innerHTML = '';
   const items = r.items?.length ? r.items : [{ name:'', qty:'', unit:'' }];
   items.forEach(i => addItem(i.name, i.qty, i.unit));
+}
+
+// ── 追蹤單號多欄位 ──
+let trackingCount = 1;
+const MAX_TRACKING = 3;
+function addTrackingField(val = '') {
+  if (trackingCount >= MAX_TRACKING) return;
+  trackingCount++;
+  const container = document.getElementById('trackingFields');
+  const row = document.createElement('div');
+  row.className = 'tracking-row';
+  row.innerHTML = `<input type="text" class="field-input tracking-input" id="f_tracking_${trackingCount}" placeholder="單號 ${trackingCount}" value="${esc(val)}">
+    <button type="button" class="del-tracking-btn" onclick="removeTrackingField(this)">✕</button>`;
+  container.appendChild(row);
+  if (trackingCount >= MAX_TRACKING) document.getElementById('addTrackingBtn').classList.add('hidden');
+}
+function removeTrackingField(btn) {
+  btn.parentElement.remove();
+  trackingCount--;
+  const inputs = document.querySelectorAll('#trackingFields .tracking-input');
+  inputs.forEach((inp, i) => { inp.id = `f_tracking_${i+1}`; inp.placeholder = `單號 ${i+1}`; });
+  document.getElementById('addTrackingBtn').classList.remove('hidden');
+}
+function resetTrackingFields() {
+  const container = document.getElementById('trackingFields');
+  container.innerHTML = '<input type="text" class="field-input tracking-input" id="f_tracking_1" placeholder="單號 1">';
+  trackingCount = 1;
+  document.getElementById('addTrackingBtn').classList.remove('hidden');
+}
+function collectTrackingNumbers() {
+  const inputs = document.querySelectorAll('#trackingFields .tracking-input');
+  const arr = [];
+  inputs.forEach(inp => { const v = inp.value.trim(); if (v) arr.push(v); });
+  return arr;
 }
 function addItem(name='', qty='', unit='') {
   const list = document.getElementById('itemsList');
@@ -836,7 +897,8 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot
 // ── Save → Sheets ──
 async function saveRecord() {
   const sender = document.getElementById('f_sender').value.trim();
-  const tracking = document.getElementById('f_tracking').value.trim();
+  const trackingArr = collectTrackingNumbers();
+  const tracking = trackingArr.length ? trackingArr.join(' / ') : '';
   if (!sender && !tracking) { showToast('請填寫寄件廠商或追蹤單號', 'err'); return; }
 
   const rows = document.querySelectorAll('#itemsList .item-row');
