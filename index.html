@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>到貨登記系統</title>
+<title>到貨登記系統</titleh>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -566,7 +566,7 @@ function doPost(e) {
     let sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
-      const headers = ["記錄ID","到貨日期","寄件廠商","追蹤單號",
+      const headers = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運公司",
         "來源地","品項","數量","單位","登記人員","備註","建立時間"];
       sheet.appendRow(headers);
       sheet.getRange(1,1,1,headers.length)
@@ -576,9 +576,9 @@ function doPost(e) {
       sheet.setFrozenRows(1);
     }
     const rows = data.items && data.items.length > 0
-      ? data.items.map(i => [data.id, data.date, data.sender, data.tracking,
+      ? data.items.map(i => [data.id, data.date, data.sender, data.tracking, data.carrier||"",
           data.origin, i.name, i.qty, i.unit, data.operator, data.note, data.createdAt])
-      : [[data.id, data.date, data.sender, data.tracking,
+      : [[data.id, data.date, data.sender, data.tracking, data.carrier||"",
           data.origin, "", "", "", data.operator, data.note, data.createdAt]];
     rows.forEach(r => sheet.appendRow(r));
     return ContentService
