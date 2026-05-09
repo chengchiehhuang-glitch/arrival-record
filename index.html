@@ -275,6 +275,79 @@ details summary {
 }
 .batch-status.seen { color: var(--accent); }
 .batch-status.new { color: var(--warn); }
+.item-row-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface2);
+  margin-bottom: 12px;
+}
+.item-row-stacked + .item-row-stacked { margin-top: 0; }
+.item-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--border);
+}
+.item-row-label {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+.item-field { display: flex; flex-direction: column; gap: 4px; }
+.item-field label {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+.item-field .item-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: 'Noto Sans TC', sans-serif;
+}
+.item-field .item-input:focus { border-color: var(--accent); }
+.item-row-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.item-row-stacked .batch-wrap { position: relative; }
+.item-row-stacked .batch-wrap .batch-input { padding-right: 80px; }
+.item-row-stacked .batch-status {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.item-row-stacked .batch-status.seen {
+  color: #fff;
+  background: var(--accent);
+}
+.item-row-stacked .batch-status.seen::after { content: ' 曾經到貨'; }
+.item-row-stacked .batch-status.new {
+  color: var(--warn);
+  background: var(--warn-light);
+}
+.item-row-stacked .batch-status.new::after { content: ' 首次'; }
 .del-btn {
   background: none; border: none; color: var(--text3);
   cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s;
@@ -1088,8 +1161,8 @@ function populateForm(r) {
   // 品項
   const list = document.getElementById('itemsList');
   list.innerHTML = '';
-  const items = r.items?.length ? r.items : [{ name:'', model:'', qty:'', unit:'', batch:'' }];
-  items.forEach(i => addItem(i.name, i.model, i.qty, i.unit, i.batch));
+  const items = r.items?.length ? r.items : [{ name:'', qty:'', unit:'' }];
+  items.forEach(i => addItem(i.name || '', i.qty || '', i.unit || '', i.model || i.name || '', i.batch || ''));
 }
 
 function setCarrierValue(value) {
@@ -1158,28 +1231,51 @@ function collectTrackingNumbers() {
   inputs.forEach(inp => { const v = inp.value.trim(); if (v) arr.push(v); });
   return arr;
 }
-function addItem(name='', model='', qty='', unit='', batch='') {
+function addItem(name='', qty='', unit='', model='', batch='') {
+  const effectiveModel = model || name;
   const list = document.getElementById('itemsList');
+  const idx = list.querySelectorAll('.item-row').length + 1;
   const row = document.createElement('div');
-  row.className = 'item-row';
+  row.className = 'item-row item-row-stacked';
   const normalizedBatch = normalizeBatch(batch);
   const batchMark = batchStatusMarkup(normalizedBatch);
   row.innerHTML = `
-    <input class="item-input" type="text" placeholder="品項名稱" value="${esc(name)}">
-    <input class="item-input" type="text" placeholder="型號" value="${esc(model)}">
-    <input class="item-input" type="number" placeholder="數量" value="${esc(qty)}" min="0" style="text-align:center">
-    <input class="item-input" type="text" placeholder="單位" value="${esc(unit)}">
-    <div class="batch-wrap">
-      <input class="item-input batch-input" type="text" placeholder="批號" value="${esc(normalizedBatch)}" onblur="normalizeBatchInput(this)">
-      ${batchMark}
+    <div class="item-row-header">
+      <span class="item-row-label">品項 ${idx}</span>
+      <button class="del-btn" onclick="this.closest('.item-row').remove(); reindexItems();">✕</button>
     </div>
-    <button class="del-btn" onclick="this.parentElement.remove()">✕</button>`;
+    <div class="item-field">
+      <label>型號</label>
+      <input class="item-input model-input" type="text" placeholder="例：DRZB017-L20U" value="${esc(effectiveModel)}">
+    </div>
+    <div class="item-row-grid-2">
+      <div class="item-field">
+        <label>數量</label>
+        <input class="item-input qty-input" type="number" placeholder="數量" value="${esc(qty)}" min="0" style="text-align:center">
+      </div>
+      <div class="item-field">
+        <label>單位</label>
+        <input class="item-input unit-input" type="text" placeholder="例：R / 件 / 卷" value="${esc(unit)}">
+      </div>
+    </div>
+    <div class="item-field">
+      <label>批號</label>
+      <div class="batch-wrap">
+        <input class="item-input batch-input" type="text" placeholder="例：LOT-2026-001" value="${esc(normalizedBatch)}" onblur="normalizeBatchInput(this)">
+        ${batchMark}
+      </div>
+    </div>`;
   list.appendChild(row);
+}
+function reindexItems() {
+  document.querySelectorAll('#itemsList .item-row .item-row-label').forEach((el, i) => {
+    el.textContent = `品項 ${i + 1}`;
+  });
 }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function normalizeBatch(v) { return String(v || '').trim().replace(/\s+/g, '').toUpperCase(); }
 function batchStatusMarkup(batch) {
-  if (!batch) return '<span class="batch-status" title="尚未填寫">—</span>';
+  if (!batch) return '<span class="batch-status new" title="首次到貨">✗</span>';
   return allBatches.has(batch)
     ? '<span class="batch-status seen" title="曾經到貨">✓</span>'
     : '<span class="batch-status new" title="首次到貨">✗</span>';
@@ -1216,17 +1312,19 @@ async function saveRecord() {
   const rows = document.querySelectorAll('#itemsList .item-row');
   const items = [];
   rows.forEach(r => {
-    const inp = r.querySelectorAll('input');
-    const n = inp[0].value.trim();
-    const batch = normalizeBatch(inp[4].value);
-    inp[4].value = batch;
-    if (n) items.push({
-      name: n,
-      model: inp[1].value.trim(),
-      qty: inp[2].value.trim(),
-      unit: inp[3].value.trim(),
+    const model = r.querySelector('.model-input')?.value.trim() || '';
+    const qty = r.querySelector('.qty-input')?.value.trim() || '';
+    const unit = r.querySelector('.unit-input')?.value.trim() || '';
+    const batchInput = r.querySelector('.batch-input');
+    const batch = batchInput ? normalizeBatch(batchInput.value) : '';
+    if (batchInput) batchInput.value = batch;
+    if (model || qty || batch) items.push({
+      name: model,
+      model,
+      qty,
+      unit,
       batch,
-      everArrived: batch && allBatches.has(batch) ? 'Y' : (batch ? 'N' : '')
+      everArrived: batch && allBatches.has(batch.toUpperCase()) ? 'Y' : (batch ? 'N' : '')
     });
   });
 
@@ -1351,16 +1449,18 @@ async function fetchAndRefresh() {
           createdAt: r['建立時間']||'', items: []
         };
       }
-      const batch = normalizeBatch(r['批號'] || '');
-      if (batch) sheetBatches.add(batch);
-      if (r['品項']) grouped[id].items.push({
-        name: r['品項'],
-        model: r['型號'] || '',
-        qty: String(r['數量']||''),
-        unit: r['單位']||'',
-        batch,
-        everArrived: r['曾經到貨'] || ''
-      });
+      if (r['品項'] || r['型號']) {
+        const batch = normalizeBatch(r['批號'] || '');
+        grouped[id].items.push({
+          name: r['品項'] || r['型號'] || '',
+          model: r['型號'] || r['品項'] || '',
+          qty: String(r['數量']||''),
+          unit: r['單位']||'',
+          batch,
+          everArrived: r['曾經到貨'] || ''
+        });
+        if (batch) sheetBatches.add(batch);
+      }
     });
     records = Object.values(grouped).sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
     allBatches = sheetBatches;
