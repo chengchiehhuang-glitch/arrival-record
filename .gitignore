@@ -1,0 +1,35 @@
+# OS / IDE
+.DS_Store
+Icon
+Icon\r
+*.swp
+.vscode/
+.idea/
+
+# 開發備份（不 push 到 production）
+_backup/
+*.bak
+
+# 含 SMTP 密碼或本機路徑的腳本（Cowork 排程用，不該公開）
+arrival_daily_report.py
+arrival_notify.py
+send_report.py
+
+# 給使用者本地手動複製用，不 push
+_gas_deploy_code.gs
+
+# 設計 mockup 參考檔（決策後不需要）
+mockup-*.html
+
+# Mac Finder 的 Icon 隱藏檔
+assets/Icon
+assets/icons/Icon
+
+# Codex / 工作檔
+preview-icon-1024.png
+assets/preview-icon-1024.png
+*.log
+
+# 不小心拍的測試圖
+test-*.png
+demo-*.png
