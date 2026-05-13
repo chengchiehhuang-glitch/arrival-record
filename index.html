@@ -1574,7 +1574,7 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
-  if (name==='records') renderRecords();
+  if (name==='records') { renderRecords(); if (CFG.gasUrl) fetchAndRefresh(); }
   if (name==='stats') updateStats();
   if (name==='settings') setTimeout(() => document.getElementById('s1-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
@@ -1601,7 +1601,12 @@ document.getElementById('f_date').value = today();
 loadBatchSet(); loadLocal(); loadQueueLocal();
 updateSettingsUI(); updateStats();
 if (offlineQueue.length) { showOfflineNotice(); flushQueue(); }
-if (CFG.gasUrl && !records.length) fetchAndRefresh();
+// 2026-05-09 v6 修：開 app 一律 fetch 最新（不管 localStorage 有沒有舊資料），確保跨手機同步
+if (CFG.gasUrl) fetchAndRefresh();
+// 從背景回到前景時也 fetch（員工切走再切回會看到最新）
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && CFG.gasUrl) fetchAndRefresh();
+});
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
 }
