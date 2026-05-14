@@ -1608,7 +1608,29 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && CFG.gasUrl) fetchAndRefresh();
 });
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+  // 2026-05-14 v7：強制檢查 SW 更新 + 偵測到新版自動 reload
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+      reg.update();  // 立即檢查
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            try { showToast('有新版本，更新中…', 'ok'); } catch {}
+          }
+        });
+      });
+      // SW 接管後自動 reload 一次（無腦升級）
+      let refreshed = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshed) return;
+        refreshed = true;
+        setTimeout(() => location.reload(), 800);
+      });
+    } catch (e) { console.warn('SW register failed:', e); }
+  });
 }
 </script>
 </body>
