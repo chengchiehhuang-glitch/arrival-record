@@ -564,15 +564,16 @@ details summary {
     <img id="previewImg" alt="預覽">
     <div class="scan-ph" id="scanPh">
       <div class="si">📷</div>
-      <p>點擊拍攝到貨單 / 包裹</p>
-      <small>支援相機拍照或相簿選取</small>
+      <p>點擊拍照</p>
+      <small>或用下方「🖼️ 從相簿選擇」挑已拍好的照片（可多張）</small>
     </div>
     <div class="scan-overlay" id="scanOverlay">
       <div class="scan-spinner"></div>
       <p>Gemini AI 辨識中…</p>
     </div>
   </div>
-  <input type="file" id="fileInput" accept="image/*" capture="environment" multiple onchange="handleImg(event)">
+  <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleImg(event)">
+  <input type="file" id="galleryInput" accept="image/*" multiple onchange="handleImg(event)" style="display:none">
   <div class="photo-queue" id="photoQueueBox">
     <div class="queue-status" id="photoQueueStatus">待處理 0 張</div>
     <div class="queue-thumbs" id="photoQueueThumbs"></div>
@@ -581,6 +582,7 @@ details summary {
     <button class="btn btn-secondary" style="flex:0.5" onclick="clearImg()">🔄 重拍</button>
     <button class="btn btn-google" id="analyzeBtn" onclick="analyzeImage()">✨ Gemini 辨識</button>
   </div>
+  <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('galleryInput').click()">🖼️ 從相簿選擇照片（可多張）</button>
   <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="openManual()">✏️ 直接手動輸入</button>
 
   <div class="form-card" id="formCard">
