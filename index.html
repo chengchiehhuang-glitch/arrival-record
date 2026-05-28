@@ -215,6 +215,43 @@ details summary {
 @keyframes spin { to { transform: rotate(360deg); } }
 .scan-overlay p { font-size: 14px; font-weight: 400; color: var(--google); }
 #fileInput { display: none; }
+.photo-queue {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 10px;
+}
+.photo-queue.show { display: block; }
+.queue-status {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.queue-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.queue-thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+  flex: 0 0 auto;
+  opacity: 0.72;
+  cursor: pointer;
+}
+.queue-thumb.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+  opacity: 1;
+}
 
 .btn-row { display: flex; gap: 10px; margin-top: 12px; }
 .btn {
@@ -252,6 +289,18 @@ details summary {
   border-radius: 999px; letter-spacing: 0.04em;
 }
 .form-card-header span { font-size: 13px; font-weight: 300; color: var(--text2); }
+.edit-hint {
+  display: none;
+  margin: 14px 24px 0;
+  padding: 10px 12px;
+  border: 1px solid #d6e2db;
+  border-radius: 10px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 400;
+}
+.edit-hint.show { display: block; }
 .form-body { padding: 24px; }
 .field-group { margin-bottom: 16px; }
 .field-label {
@@ -415,12 +464,29 @@ details summary {
 .rec-items-table td:last-child { text-align: right; color: var(--text2); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .rec-note { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
 .rec-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin: 0 0 10px; cursor: pointer; display: block; background: var(--surface2); }
+.rec-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.rec-action-btn {
+  min-height: 40px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); border-radius: 10px;
+  font-size: 12px; padding: 8px 14px; cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif; transition: all 0.18s;
+}
+.rec-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 .rec-del-btn {
   min-height: 40px; background: none; border: 1px solid var(--warn); color: var(--warn); border-radius: 10px;
   font-size: 12px; padding: 8px 14px; cursor: pointer;
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.18s;
 }
 .rec-del-btn:hover { background: var(--warn-light); }
+.date-group { margin-bottom: 18px; }
+.date-group-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  padding: 10px 2px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
 .empty-state { text-align: center; padding: 50px 20px; }
 .empty-state .ei { font-size: 44px; margin-bottom: 10px; }
 .empty-state p { font-size: 13px; color: var(--text3); }
@@ -506,7 +572,11 @@ details summary {
       <p>Gemini AI 辨識中…</p>
     </div>
   </div>
-  <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleImg(event)">
+  <input type="file" id="fileInput" accept="image/*" capture="environment" multiple onchange="handleImg(event)">
+  <div class="photo-queue" id="photoQueueBox">
+    <div class="queue-status" id="photoQueueStatus">待處理 0 張</div>
+    <div class="queue-thumbs" id="photoQueueThumbs"></div>
+  </div>
   <div class="btn-row" id="analyzeRow" style="display:none">
     <button class="btn btn-secondary" style="flex:0.5" onclick="clearImg()">🔄 重拍</button>
     <button class="btn btn-google" id="analyzeBtn" onclick="analyzeImage()">✨ Gemini 辨識</button>
@@ -518,6 +588,7 @@ details summary {
       <span class="gemini-tag">Gemini</span>
       <span>辨識結果 — 請確認後儲存</span>
     </div>
+    <div class="edit-hint" id="editHint"></div>
     <div class="form-body">
       <div class="two-col">
         <div class="field-group">
@@ -574,6 +645,10 @@ details summary {
       <div class="field-group">
         <div class="field-label">處理人（拆貨 / 收貨者）</div>
         <input type="text" class="field-input" id="f_handler" placeholder="預設空白">
+      </div>
+      <div class="field-group">
+        <div class="field-label">儲位</div>
+        <input type="text" class="field-input" id="f_location" placeholder="例：A-12 / 三樓貨架">
       </div>
       <div class="field-group">
         <div class="field-label">派送時段</div>
@@ -732,19 +807,20 @@ details summary {
 
 <script>
 // ── GAS Code ──
-const GAS_CODE = `// 2026-05-09 重啟版 v2 — PWA + 21 欄 schema
+const GAS_CODE = `// 2026-05-28 v8 — 批次辨識 + 儲位 + 修改刪除 + LINE
 const SHEET_NAME = "到貨記錄";
 const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運公司",
   "來源地","品項","數量","單位","登記人員","備註","建立時間",
   "追蹤單號2","追蹤單號3","型號","批號",
-  "派送時段","派送指示","處理人","照片連結","曾經到貨"];
+  "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","輸入完成"];
 
 function ensureSchema(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
     sheet.getRange(1,1,1,HEADERS.length)
-      .setFontWeight("bold").setBackground("#4285f4").setFontColor("#ffffff");
+      .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
     sheet.setFrozenRows(1);
+    applyCompleteCheckboxes(sheet);
     return;
   }
   const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
@@ -752,9 +828,18 @@ function ensureSchema(sheet) {
     if (existing.indexOf(h) === -1) {
       const col = sheet.getLastColumn() + 1;
       sheet.getRange(1, col).setValue(h)
-        .setFontWeight("bold").setBackground("#4285f4").setFontColor("#ffffff");
+        .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
     }
   });
+  applyCompleteCheckboxes(sheet);
+}
+
+function applyCompleteCheckboxes(sheet) {
+  const map = colMap(sheet);
+  const completeCol = map["輸入完成"] + 1;
+  if (!completeCol) return;
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.getRange(2, completeCol, lastRow - 1, 1).insertCheckboxes();
 }
 
 function colMap(sheet) {
@@ -766,6 +851,135 @@ function colMap(sheet) {
 
 function put(row, map, key, val) {
   if (map[key] !== undefined) row[map[key]] = val === undefined || val === null ? "" : val;
+}
+
+function buildRows(sheet, data) {
+  ensureSchema(sheet);
+  const map = colMap(sheet);
+  const items = data.items && data.items.length ? data.items : [{}];
+  return items.map((i) => {
+    const row = Array(sheet.getLastColumn()).fill("");
+    put(row, map, "記錄ID", data.id);
+    put(row, map, "到貨日期", String(data.date || ""));
+    put(row, map, "寄件廠商", data.sender);
+    put(row, map, "追蹤單號", String(data.tracking || ""));
+    put(row, map, "託運公司", data.carrier || "");
+    put(row, map, "來源地", data.origin || "");
+    put(row, map, "品項", i.name || "");
+    put(row, map, "數量", i.qty || "");
+    put(row, map, "單位", i.unit || "");
+    put(row, map, "登記人員", data.operator || "");
+    put(row, map, "備註", data.note || "");
+    put(row, map, "建立時間", data.createdAt || "");
+    put(row, map, "追蹤單號2", String(data.tracking2 || ""));
+    put(row, map, "追蹤單號3", String(data.tracking3 || ""));
+    put(row, map, "型號", i.model || "");
+    put(row, map, "批號", i.batch || "");
+    put(row, map, "派送時段", data.deliveryWindow || "");
+    put(row, map, "派送指示", data.deliveryInstruction || "");
+    put(row, map, "處理人", data.handler || "");
+    put(row, map, "照片連結", data.photoUrl || "");
+    put(row, map, "曾經到貨", i.everArrived || "");
+    put(row, map, "儲位", data.location || "");
+    put(row, map, "輸入完成", false);
+    return row;
+  });
+}
+
+function appendRecordRows(sheet, data) {
+  const rows = buildRows(sheet, data);
+  rows.forEach(row => sheet.appendRow(row));
+  applyCompleteCheckboxes(sheet);
+}
+
+function detailFromData(data) {
+  const item = (data.items && data.items[0]) || {};
+  return (data.sender || "") + " / " + (item.model || item.name || "");
+}
+
+function detailFromRows(sheet, rowNums, map) {
+  if (!rowNums.length) return "";
+  const r = sheet.getRange(rowNums[0], 1, 1, sheet.getLastColumn()).getValues()[0];
+  return (r[map["寄件廠商"]] || "") + " / " + (r[map["型號"]] || r[map["品項"]] || "");
+}
+
+function findRowsByRecordId(sheet, recordId, map) {
+  const idCol = map["記錄ID"];
+  if (idCol === undefined || !recordId) return [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const values = sheet.getRange(2, idCol + 1, lastRow - 1, 1).getValues();
+  const rows = [];
+  values.forEach((r, i) => {
+    if (String(r[0]) === String(recordId)) rows.push(i + 2);
+  });
+  return rows;
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function logAction(action, recordId, operator, detail) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let log = ss.getSheetByName("操作記錄");
+  if (!log) {
+    log = ss.insertSheet("操作記錄");
+    log.appendRow(["時間","動作","記錄ID","操作人","詳情"]);
+    log.getRange(1,1,1,5).setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
+    log.setFrozenRows(1);
+  }
+  log.appendRow([Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"), action, recordId, operator || "", detail || ""]);
+}
+
+function handleUpdateRecord(data) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) return jsonOut({ok:false, error:'找不到工作表'});
+    ensureSchema(sheet);
+    const map = colMap(sheet);
+    const rows = findRowsByRecordId(sheet, data.id, map);
+    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
+    appendRecordRows(sheet, data);
+    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
+    logAction("修改", data.id, data.operator, detailFromData(data));
+    return jsonOut({ok:true, updated: rows.length});
+  } catch(err) {
+    return jsonOut({ok:false, error: err.message});
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleDeleteRecord(data) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試'});
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) return jsonOut({ok:true, deleted:0});
+    ensureSchema(sheet);
+    const map = colMap(sheet);
+    const rows = findRowsByRecordId(sheet, data.id, map);
+    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要刪除的記錄 ' + data.id});
+    const detail = detailFromRows(sheet, rows, map);
+    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
+    logAction("刪除", data.id, data.operator, data.detail || detail);
+    return jsonOut({ok:true, deleted: rows.length});
+  } catch(err) {
+    return jsonOut({ok:false, error: err.message});
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── 照片資料夾管理 ──
@@ -825,44 +1039,57 @@ function doPost(e) {
     if (data.action === 'uploadPhoto') {
       return handlePhotoUpload(data);
     }
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-    ensureSchema(sheet);
-    const map = colMap(sheet);
-    const items = data.items && data.items.length ? data.items : [{}];
-    items.forEach((i) => {
-      const row = Array(sheet.getLastColumn()).fill("");
-      put(row, map, "記錄ID", data.id);
-      put(row, map, "到貨日期", String(data.date || ""));
-      put(row, map, "寄件廠商", data.sender);
-      put(row, map, "追蹤單號", String(data.tracking || ""));
-      put(row, map, "託運公司", data.carrier || "");
-      put(row, map, "來源地", data.origin || "");
-      put(row, map, "品項", i.name || "");
-      put(row, map, "數量", i.qty || "");
-      put(row, map, "單位", i.unit || "");
-      put(row, map, "登記人員", data.operator || "");
-      put(row, map, "備註", data.note || "");
-      put(row, map, "建立時間", data.createdAt || "");
-      put(row, map, "追蹤單號2", String(data.tracking2 || ""));
-      put(row, map, "追蹤單號3", String(data.tracking3 || ""));
-      put(row, map, "型號", i.model || "");
-      put(row, map, "批號", i.batch || "");
-      put(row, map, "派送時段", data.deliveryWindow || "");
-      put(row, map, "派送指示", data.deliveryInstruction || "");
-      put(row, map, "處理人", data.handler || "");
-      put(row, map, "照片連結", data.photoUrl || "");
-      put(row, map, "曾經到貨", i.everArrived || "");
-      sheet.appendRow(row);
-    });
-    return ContentService
-      .createTextOutput(JSON.stringify({ok: true}))
-      .setMimeType(ContentService.MimeType.JSON);
+    if (data.action === 'updateRecord') {
+      return handleUpdateRecord(data);
+    }
+    if (data.action === 'deleteRecord') {
+      return handleDeleteRecord(data);
+    }
+    const lock = LockService.getScriptLock();
+    try { lock.waitLock(15000); } catch(e) {
+      return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
+    }
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let sheet = ss.getSheetByName(SHEET_NAME);
+      if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+      appendRecordRows(sheet, data);
+      pushLineNotification(data);
+      return jsonOut({ok: true});
+    } catch(err) {
+      return jsonOut({ok:false, error: err.message});
+    } finally {
+      lock.releaseLock();
+    }
   } catch(err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ok: false, error: err.message}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOut({ok: false, error: err.message});
+  }
+}
+
+function pushLineNotification(data) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const token = props.getProperty('line_token');
+    const groupId = props.getProperty('line_group_id');
+    if (!token || !groupId) return;
+    const item = (data.items && data.items[0]) || {};
+    const everTxt = item.everArrived === 'Y' ? '曾經到貨 ✓' : (item.batch ? '首次 ✗' : '');
+    const msg = "🚚 新到貨登記\\n" +
+      "廠商：" + (data.sender || '') + "\\n" +
+      "品項：" + (item.model || item.name || '') + " x" + (item.qty || '') + (item.unit || '') + "\\n" +
+      (item.batch ? "批號：" + item.batch + "（" + everTxt + "）\\n" : "") +
+      (data.location ? "儲位：" + data.location + "\\n" : "") +
+      "登記：" + (data.operator || '') + "\\n" +
+      "時間：" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+    UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'Authorization': 'Bearer ' + token },
+      payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: msg }] }),
+      muteHttpExceptions: true
+    });
+  } catch(err) {
+    Logger.log('LINE push error: ' + err.message);
   }
 }
 
@@ -910,6 +1137,9 @@ const CFG = {
 let records = [];
 let offlineQueue = [];
 let currentB64 = null;
+let photoQueue = [];
+let photoQueueTotal = 0;
+let editingRecordId = '';
 let allBatches = new Set();
 
 // ── Settings ──
@@ -1013,38 +1243,109 @@ function triggerCamera() {
   if (document.getElementById('formCard').classList.contains('show')) return;
   document.getElementById('fileInput').click();
 }
-function handleImg(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    currentB64 = ev.target.result.split(',')[1];
-    document.getElementById('previewImg').src = ev.target.result;
-    document.getElementById('previewImg').style.display = 'block';
-    document.getElementById('scanPh').style.display = 'none';
-    document.getElementById('scanArea').classList.add('has-img');
-    document.getElementById('analyzeRow').style.display = 'flex';
-  };
-  reader.readAsDataURL(file);
+async function handleImg(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  photoQueue = await Promise.all(files.map(readPhotoFile));
+  photoQueueTotal = photoQueue.length;
+  updatePhotoQueueUI();
+  loadQueuedPhoto(0);
   e.target.value = '';
+  if (photoQueue.length) setTimeout(() => analyzeImage(), 120);
 }
-function clearImg() {
+function readPhotoFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      resolve({ b64: String(dataUrl).split(',')[1], dataUrl, filename: file.name || 'photo.jpg' });
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+function loadQueuedPhoto(index) {
+  if (index > 0 && photoQueue[index]) {
+    const [selected] = photoQueue.splice(index, 1);
+    photoQueue.unshift(selected);
+    index = 0;
+  }
+  const item = photoQueue[index];
+  if (!item) return;
+  currentB64 = item.b64;
+  document.getElementById('previewImg').src = item.dataUrl;
+  document.getElementById('previewImg').style.display = 'block';
+  document.getElementById('scanPh').style.display = 'none';
+  document.getElementById('scanArea').classList.add('has-img');
+  document.getElementById('analyzeRow').style.display = 'flex';
+  updatePhotoQueueUI();
+}
+function updatePhotoQueueUI() {
+  const box = document.getElementById('photoQueueBox');
+  const status = document.getElementById('photoQueueStatus');
+  const thumbs = document.getElementById('photoQueueThumbs');
+  if (!photoQueue.length) {
+    box.classList.remove('show');
+    thumbs.innerHTML = '';
+    status.textContent = '待處理 0 張';
+    return;
+  }
+  box.classList.add('show');
+  status.textContent = `待處理 ${photoQueue.length} 張`;
+  thumbs.innerHTML = photoQueue.map((p, i) => `<img class="queue-thumb ${i === 0 ? 'active' : ''}" src="${p.dataUrl}" alt="${esc(p.filename)}" onclick="loadQueuedPhoto(${i})">`).join('');
+}
+function finishCurrentPhoto() {
+  if (!photoQueue.length) return false;
+  photoQueue.shift();
+  updatePhotoQueueUI();
+  if (photoQueue.length) {
+    loadQueuedPhoto(0);
+    setTimeout(() => analyzeImage(), 180);
+  } else {
+    const done = photoQueueTotal || 1;
+    photoQueueTotal = 0;
+    showToast(`${done} 張全部完成`, 'ok');
+    resetScanPreview();
+  }
+  return true;
+}
+function resetScanPreview() {
   currentB64 = null;
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('previewImg').src = '';
   document.getElementById('scanPh').style.display = 'block';
   document.getElementById('scanArea').classList.remove('has-img');
   document.getElementById('analyzeRow').style.display = 'none';
+}
+function clearImg(reopen = true) {
+  photoQueue = [];
+  photoQueueTotal = 0;
+  updatePhotoQueueUI();
+  resetScanPreview();
   document.getElementById('formCard').classList.remove('show');
   document.getElementById('scanOverlay').classList.remove('show');
-  setTimeout(() => document.getElementById('fileInput').click(), 200);
+  resetEditMode();
+  if (reopen) setTimeout(() => document.getElementById('fileInput').click(), 200);
 }
-function openManual() { populateForm({}); document.getElementById('formCard').classList.add('show'); }
-function closeForm() { document.getElementById('formCard').classList.remove('show'); clearImg(); }
+function openManual() {
+  photoQueue = [];
+  photoQueueTotal = 0;
+  updatePhotoQueueUI();
+  resetScanPreview();
+  resetEditMode();
+  populateForm({});
+  document.getElementById('formCard').classList.add('show');
+}
+function closeForm() {
+  document.getElementById('formCard').classList.remove('show');
+  clearImg(false);
+}
 
 // ── Gemini AI Analyze ──
 async function analyzeImage() {
   if (!currentB64) return;
   if (!CFG.geminiKey) { showToast('請先在設定頁填入 Gemini API Key', 'err'); return; }
+  const submittedB64 = currentB64;
 
   document.getElementById('scanOverlay').classList.add('show');
   document.getElementById('analyzeBtn').disabled = true;
@@ -1070,7 +1371,7 @@ async function analyzeImage() {
         body: JSON.stringify({
           contents: [{
             parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: currentB64 } },
+              { inline_data: { mime_type: 'image/jpeg', data: submittedB64 } },
               { text: prompt }
             ]
           }],
@@ -1127,12 +1428,17 @@ async function analyzeImage() {
       try { parsed = JSON.parse(fixed); }
       catch { parsed = {}; }
     }
+    if (currentB64 !== submittedB64) {
+      showToast('照片已切換，已略過舊辨識結果', 'err');
+      return;
+    }
     populateForm(parsed);
     document.getElementById('formCard').classList.add('show');
     showToast('Gemini 辨識完成 ✓', 'ok');
 
   } catch (err) {
     console.error(err);
+    if (currentB64 !== submittedB64) return;
     populateForm({});
     document.getElementById('formCard').classList.add('show');
     showToast('辨識失敗：' + err.message.slice(0, 40), 'err');
@@ -1143,15 +1449,17 @@ async function analyzeImage() {
 }
 
 function populateForm(r) {
+  if (!editingRecordId) resetEditMode();
   document.getElementById('f_sender').value = r.sender || '';
   setCarrierValue(r.carrier || '');
   document.getElementById('f_origin').value = toTraditional(r.origin || '');
-  document.getElementById('f_date').value = today();
+  document.getElementById('f_date').value = r.date || today();
   document.getElementById('f_note').value = r.note || '';
-  document.getElementById('f_operator').value = CFG.operator;
-  document.getElementById('f_handler').value = '';
-  document.getElementById('f_delivery_window').value = '';
-  document.getElementById('f_delivery_instruction').value = '';
+  document.getElementById('f_operator').value = r.operator || CFG.operator;
+  document.getElementById('f_handler').value = r.handler || '';
+  document.getElementById('f_location').value = r.location || '';
+  document.getElementById('f_delivery_window').value = r.deliveryWindow || '';
+  document.getElementById('f_delivery_instruction').value = r.deliveryInstruction || '';
   // 追蹤單號（支援舊格式字串與新格式陣列）
   resetTrackingFields();
   const tArr = Array.isArray(r.tracking) ? r.tracking
@@ -1163,6 +1471,18 @@ function populateForm(r) {
   list.innerHTML = '';
   const items = r.items?.length ? r.items : [{ name:'', qty:'', unit:'' }];
   items.forEach(i => addItem(i.name || '', i.qty || '', i.unit || '', i.model || i.name || '', i.batch || ''));
+}
+
+function setEditMode(recordId) {
+  editingRecordId = recordId;
+  document.getElementById('editHint').textContent = `正在修改 ${recordId}`;
+  document.getElementById('editHint').classList.add('show');
+  document.getElementById('saveBtn').textContent = '✓ 更新';
+}
+function resetEditMode() {
+  editingRecordId = '';
+  document.getElementById('editHint')?.classList.remove('show');
+  document.getElementById('saveBtn').textContent = '☁️ 儲存至雲端';
 }
 
 function setCarrierValue(value) {
@@ -1305,6 +1625,8 @@ function rememberBatches(items) {
 async function saveRecord() {
   const sender = document.getElementById('f_sender').value.trim();
   const photoB64 = currentB64;
+  const isEditing = !!editingRecordId;
+  const oldRecord = isEditing ? records.find(r => r.id === editingRecordId) : null;
   const trackingArr = collectTrackingNumbers();
   const tracking = trackingArr[0] || '';
   if (!sender && !tracking) { showToast('請填寫寄件廠商或追蹤單號', 'err'); return; }
@@ -1329,7 +1651,7 @@ async function saveRecord() {
   });
 
   const record = {
-    id: 'REC-' + Date.now().toString(36).toUpperCase(),
+    id: isEditing ? editingRecordId : 'REC-' + Date.now().toString(36).toUpperCase(),
     sender: sender || '未知',
     tracking: tracking || '—',
     tracking2: trackingArr[1] || '',
@@ -1338,22 +1660,19 @@ async function saveRecord() {
     origin: toTraditional(document.getElementById('f_origin').value.trim()),
     date: document.getElementById('f_date').value || today(),
     items,
-    operator: document.getElementById('f_operator').value.trim() || '未知',
+    operator: (isEditing ? CFG.operator : document.getElementById('f_operator').value.trim()) || document.getElementById('f_operator').value.trim() || '未知',
     handler: document.getElementById('f_handler').value.trim(),
+    location: document.getElementById('f_location').value.trim(),
     deliveryWindow: document.getElementById('f_delivery_window').value.trim(),
     deliveryInstruction: document.getElementById('f_delivery_instruction').value.trim(),
     note: document.getElementById('f_note').value.trim(),
-    photoUrl: '',
-    thumbnailUrl: '',
-    createdAt: new Date().toISOString()
+    photoUrl: oldRecord?.photoUrl || '',
+    thumbnailUrl: oldRecord?.thumbnailUrl || '',
+    createdAt: oldRecord?.createdAt || new Date().toISOString()
   };
 
-  records.unshift(record);
-  rememberBatches(items);
-  saveLocal();
-  closeForm();
-  updateStats();
-  showToast('儲存中…');
+  document.getElementById('formCard').classList.remove('show');
+  showToast(isEditing ? '更新中…' : '儲存中…');
 
   document.getElementById('saveBtn').disabled = true;
   if (photoB64 && CFG.uploadPhotos !== 'false') {
@@ -1368,16 +1687,37 @@ async function saveRecord() {
       showToast('照片上傳失敗，仍會寫入 Sheets', 'err');
     }
   }
-  const ok = await pushToSheets(record);
+  const sheetResult = await pushToSheets(record, isEditing ? 'updateRecord' : '');
+  const ok = sheetResult.ok;
   document.getElementById('saveBtn').disabled = false;
 
   if (ok) {
-    showToast(record.photoUrl ? '✓ 已同步至 Sheets + 照片已存 Drive' : '✓ 已同步至 Sheets', 'ok');
+    if (isEditing) records = records.map(r => r.id === record.id ? record : r);
+    else records.unshift(record);
+    rememberBatches(items);
+    saveLocal();
+    updateStats();
+    if (document.getElementById('view-records').classList.contains('active')) renderRecords();
+    resetEditMode();
+    if (!isEditing && finishCurrentPhoto()) return;
+    resetScanPreview();
+    showToast(record.photoUrl ? '✓ 已同步至 Sheets + 照片已存 Drive' : (isEditing ? '✓ 已更新 Sheets' : '✓ 已同步至 Sheets'), 'ok');
   } else {
-    offlineQueue.push(record);
-    saveQueueLocal();
-    showOfflineNotice();
-    showToast('已暫存，連線後自動同步', 'err');
+    if (isEditing) {
+      document.getElementById('formCard').classList.add('show');
+      showToast(sheetResult.error || '更新失敗，請確認連線後再試', 'err');
+    } else {
+      records.unshift(record);
+      rememberBatches(items);
+      saveLocal();
+      updateStats();
+      offlineQueue.push(record);
+      saveQueueLocal();
+      showOfflineNotice();
+      if (finishCurrentPhoto()) return;
+      resetScanPreview();
+      showToast(sheetResult.error || '已暫存，連線後自動同步', 'err');
+    }
   }
 }
 
@@ -1397,13 +1737,16 @@ async function uploadPhoto(recordId, sender, dateYMD, base64) {
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
-async function pushToSheets(record) {
-  if (!CFG.gasUrl) return false;
+async function pushToSheets(record, action = '') {
+  if (!CFG.gasUrl) return { ok: false, error: '未設定 Apps Script URL' };
   try {
-    const res = await fetch(CFG.gasUrl, { method: 'POST', body: JSON.stringify(record) });
+    const payload = action ? { ...record, action } : record;
+    const res = await fetch(CFG.gasUrl, { method: 'POST', body: JSON.stringify(payload) });
     const d = await res.json();
-    return d.ok === true;
-  } catch { return false; }
+    return { ok: d.ok === true, error: d.error || '' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 async function flushQueue() {
@@ -1412,8 +1755,8 @@ async function flushQueue() {
   document.getElementById('syncLabel').textContent = '同步中…';
   const failed = [];
   for (const rec of offlineQueue) {
-    const ok = await pushToSheets(rec);
-    if (!ok) failed.push(rec);
+    const result = await pushToSheets(rec);
+    if (!result.ok) failed.push(rec);
   }
   offlineQueue = failed;
   saveQueueLocal();
@@ -1438,11 +1781,13 @@ async function fetchAndRefresh() {
       if (!id) return;
       if (!grouped[id]) {
         const photoUrl = r['照片連結'] || '';
+        const normalizedDate = normalizeDateStr(r['到貨日期']);
         grouped[id] = {
           id, sender: r['寄件廠商']||'', tracking: r['追蹤單號']||'—',
           tracking2: r['追蹤單號2']||'', tracking3: r['追蹤單號3']||'', carrier: r['託運公司']||'',
-          origin: r['來源地']||'', date: String(r['到貨日期']||'').split('T')[0],
+          origin: r['來源地']||'', date: normalizedDate,
           operator: r['登記人員']||'', handler: r['處理人']||'',
+          location: r['儲位']||'',
           deliveryWindow: r['派送時段']||'', deliveryInstruction: r['派送指示']||'', note: r['備註']||'',
           photoUrl,
           thumbnailUrl: photoUrl ? photoUrl.replace(/\/file\/d\/([^\/]+)\/view.*/, 'https://drive.google.com/thumbnail?id=$1&sz=w400') : '',
@@ -1486,10 +1831,10 @@ function renderRecords() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const df = document.getElementById('dateFilter').value;
   const filtered = records.filter(r => {
-    const ms = !q || [r.sender, r.tracking, r.tracking2, r.tracking3, r.carrier, r.origin, r.operator, r.handler,
+    const ms = !q || [r.sender, r.tracking, r.tracking2, r.tracking3, r.carrier, r.origin, r.operator, r.handler, r.location,
       ...r.items.map(i=>i.name), ...r.items.map(i=>i.model), ...r.items.map(i=>i.batch)]
       .some(v=>(v||'').toString().toLowerCase().includes(q));
-    const md = !df || r.date === df;
+    const md = !df || normalizeDateStr(r.date) === df;
     return ms && md;
   });
   const c = document.getElementById('recordsList');
@@ -1497,7 +1842,17 @@ function renderRecords() {
     c.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>沒有符合的記錄</p></div>`;
     return;
   }
-  c.innerHTML = filtered.map(r => `
+  const groups = {};
+  filtered.forEach(r => {
+    const key = groupDateKey(r);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  c.innerHTML = Object.keys(groups).sort((a,b) => b.localeCompare(a)).map(dateKey => {
+    const group = groups[dateKey].sort((a,b) => recordTimeValue(b) - recordTimeValue(a));
+    return `<div class="date-group">
+      <div class="date-group-title">📅 ${dateKey}（${group.length} 筆）</div>
+      ${group.map(r => `
     <div class="record-card">
       <div class="record-head" onclick="toggleRec('${r.id}')">
         <div>
@@ -1509,10 +1864,12 @@ function renderRecords() {
           <span class="rec-cnt">${r.items.length} 項</span>
           ${r.operator ? `<span class="rec-op">${r.operator}</span>` : ''}
           ${r.handler ? `<span class="rec-op">處理：${r.handler}</span>` : ''}
+          ${r.location ? `<span class="rec-op">儲位：${r.location}</span>` : ''}
         </div>
       </div>
       <div class="record-body" id="rb-${r.id}">
         ${r.origin ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">📍 ${r.origin}</div>` : ''}
+        ${r.location ? `<div class="rec-note">📦 儲位：${r.location}</div>` : ''}
         <table class="rec-items-table">
           ${r.items.length ? r.items.map(i=>`<tr><td>${itemText(i)}</td><td>${i.qty} ${i.unit}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text3)">無品項</td></tr>'}
         </table>
@@ -1520,20 +1877,67 @@ function renderRecords() {
         ${r.deliveryInstruction ? `<div class="rec-note">📌 ${r.deliveryInstruction}</div>` : ''}
         ${r.note ? `<div class="rec-note">💬 ${r.note}</div>` : ''}
         ${r.thumbnailUrl ? `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img class="rec-thumb" src="${r.thumbnailUrl}" loading="lazy" alt="到貨照片"></a>` : ''}
-        <div><button class="rec-del-btn" onclick="deleteRec('${r.id}')">🗑 刪除本機</button></div>
+        <div class="rec-actions">
+          <button class="rec-action-btn" onclick="event.stopPropagation(); editRec('${r.id}')">✏️ 修改</button>
+          <button class="rec-del-btn" onclick="event.stopPropagation(); deleteCloudRec('${r.id}')">🗑 刪除</button>
+        </div>
       </div>
-    </div>`).join('');
+    </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+function groupDateKey(r) {
+  return normalizeDateStr(r.date || r.createdAt) || today();
+}
+function recordTimeValue(r) {
+  const t = Date.parse(r.createdAt || r.date || '');
+  return Number.isFinite(t) ? t : 0;
 }
 function trackingText(r) { return [r.tracking, r.tracking2, r.tracking3].filter(v => v && v !== '—').join(' / ') || '—'; }
 function itemText(i) {
   return `${i.name || ''}${i.model ? ` <span style="color:var(--text3)">[型號:${i.model}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[批號:${i.batch}]</span>` : ''}`;
 }
 function toggleRec(id) { document.getElementById('rb-'+id)?.classList.toggle('open'); }
-function deleteRec(id) {
-  if (!confirm('刪除本機此筆記錄？（Google Sheets 不受影響）')) return;
+function editRec(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  clearImg(false);
+  setEditMode(id);
+  populateForm(rec);
+  showTab('scan');
+  document.getElementById('formCard').classList.add('show');
+  setTimeout(() => document.getElementById('formCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+async function deleteCloudRec(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  const operator = CFG.operator || document.getElementById('f_operator')?.value.trim() || rec.operator || '';
+  if (!confirm(`確定刪除 ${id}（${rec.sender || '未知廠商'}）？此動作會記錄操作人 [${operator || '未設定'}]，無法復原。`)) return;
+  showToast('刪除中…');
+  const result = await deleteFromSheets(rec, operator);
+  if (!result.ok) { showToast(result.error || '刪除失敗，請確認連線後再試', 'err'); return; }
   records = records.filter(r => r.id !== id);
   saveLocal(); renderRecords(); updateStats();
-  showToast('已從本機移除');
+  showToast('已刪除並寫入操作記錄', 'ok');
+}
+async function deleteFromSheets(rec, operator) {
+  if (!CFG.gasUrl) return { ok: false, error: '未設定 Apps Script URL' };
+  try {
+    const firstItem = rec.items?.[0] || {};
+    const res = await fetch(CFG.gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'deleteRecord',
+        id: rec.id,
+        operator,
+        detail: `${rec.sender || ''} / ${firstItem.model || firstItem.name || ''}`
+      })
+    });
+    const d = await res.json();
+    return { ok: d.ok === true, error: d.error || '' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── Stats ──
@@ -1541,8 +1945,8 @@ function updateStats() {
   const t = today();
   const weekAgo = dateYMD(new Date(Date.now()-7*86400000));
   document.getElementById('s-total').textContent = records.length;
-  document.getElementById('s-today').textContent = records.filter(r=>r.date===t).length;
-  document.getElementById('s-week').textContent = records.filter(r=>r.date>=weekAgo).length;
+  document.getElementById('s-today').textContent = records.filter(r=>normalizeDateStr(r.date)===t).length;
+  document.getElementById('s-week').textContent = records.filter(r=>normalizeDateStr(r.date)>=weekAgo).length;
   const vendors = {};
   records.forEach(r => vendors[r.sender]=(vendors[r.sender]||0)+1);
   document.getElementById('s-vendors').textContent = Object.keys(vendors).length;
@@ -1555,11 +1959,11 @@ function updateStats() {
 // ── Export CSV ──
 function exportCSV() {
   if (!records.length) { showToast('沒有資料', 'err'); return; }
-  const h = ['記錄ID','日期','寄件廠商','追蹤單號','追蹤單號2','追蹤單號3','託運公司','來源地','品項','型號','數量','單位','批號','登記人員','處理人','派送時段','派送指示','其他備註','曾經到貨'];
+  const h = ['記錄ID','日期','寄件廠商','追蹤單號','追蹤單號2','追蹤單號3','託運公司','來源地','品項','型號','數量','單位','批號','登記人員','處理人','儲位','派送時段','派送指示','其他備註','曾經到貨'];
   const rows = [];
   records.forEach(r => {
-    if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,'','','','','',r.operator,r.handler,r.deliveryWindow,r.deliveryInstruction,r.note,'']);
-    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,i.name,i.model,i.qty,i.unit,i.batch,r.operator,r.handler,r.deliveryWindow,r.deliveryInstruction,r.note,i.everArrived]));
+    if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,'','','','','',r.operator,r.handler,r.location,r.deliveryWindow,r.deliveryInstruction,r.note,'']);
+    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,i.name,i.model,i.qty,i.unit,i.batch,r.operator,r.handler,r.location,r.deliveryWindow,r.deliveryInstruction,r.note,i.everArrived]));
   });
   const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
@@ -1594,6 +1998,19 @@ function dateYMD(d) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+}
+function normalizeDateStr(v) {
+  if (!v) return '';
+  if (v instanceof Date && !Number.isNaN(v.getTime())) return dateYMD(v);
+  const s = String(v).trim();
+  if (!s) return '';
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T.*)?$/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  const slash = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (slash) return `${slash[1]}-${slash[2].padStart(2, '0')}-${slash[3].padStart(2, '0')}`;
+  const parsed = new Date(s);
+  if (!Number.isNaN(parsed.getTime())) return dateYMD(parsed);
+  return s.slice(0, 10);
 }
 
 // ── Init ──
