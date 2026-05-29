@@ -1,5 +1,5 @@
 // 2026-05-09 重啟版 v2 — PWA + 21 欄 schema
-const CACHE = 'arrival-v8d';
+const CACHE = 'arrival-v8e';
 const ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  // cache:'reload' = 略過瀏覽器 HTTP 快取，更新時一定抓到最新檔（修「SW 升級了畫面還是舊的」陷阱）
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(
+    ASSETS.map(u => new Request(u, { cache: 'reload' }))
+  )));
   self.skipWaiting();
 });
 
