@@ -464,6 +464,15 @@ details summary {
 .rec-items-table td:last-child { text-align: right; color: var(--text2); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .rec-note { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
 .rec-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin: 0 0 10px; cursor: pointer; display: block; background: var(--surface2); }
+.rec-photo-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.rec-photo-btn:active { background: var(--border); }
+.photo-modal { display: none; position: fixed; inset: 0; top: 0; right: 0; bottom: 0; left: 0; z-index: 10000; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px; }
+.photo-modal.show { display: flex; }
+.photo-modal-inner { position: relative; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.photo-modal-inner img { max-width: 100%; max-height: 78vh; border-radius: 8px; object-fit: contain; background: #fff; }
+.photo-modal-close { position: fixed; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.92); font-size: 20px; line-height: 1; cursor: pointer; color: #333; z-index: 10001; }
+.photo-modal-msg { color: #fff; font-size: 14px; text-align: center; max-width: 280px; line-height: 1.6; }
+.photo-modal-link { color: #fff; font-size: 13px; text-decoration: underline; }
 .rec-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .rec-action-btn {
   min-height: 40px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); border-radius: 10px;
@@ -802,6 +811,15 @@ details summary {
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="photo-modal" id="photoModal" onclick="if(event.target===this)closePhoto()">
+  <button class="photo-modal-close" onclick="closePhoto()" aria-label="關閉">✕</button>
+  <div class="photo-modal-inner">
+    <img id="photoModalImg" alt="到貨照片">
+    <div class="photo-modal-msg" id="photoModalMsg" style="display:none">⚠️ 照片無法在 App 內直接顯示，請用下方連結在 Google Drive 開啟。</div>
+    <a class="photo-modal-link" id="photoModalLink" href="#" target="_blank" rel="noopener">在 Google Drive 開啟原圖 ↗</a>
+  </div>
+</div>
 
 <script>
 // ── GAS Code ──
@@ -1602,6 +1620,41 @@ function reindexItems() {
   });
 }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ── 照片彈窗（點「點我看照片」才載入；Drive 縮圖直連常被擋，改用 lh3 直連 + 多層備援）──
+function openPhoto(photoUrl) {
+  const modal = document.getElementById('photoModal');
+  const img = document.getElementById('photoModalImg');
+  const msg = document.getElementById('photoModalMsg');
+  const link = document.getElementById('photoModalLink');
+  const m = String(photoUrl || '').match(/\/file\/d\/([^\/]+)\//);
+  const id = m ? m[1] : '';
+  link.href = photoUrl || '#';
+  msg.style.display = 'none';
+  img.style.display = 'block';
+  if (id) {
+    img.dataset.fallback = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1600';
+    img.onerror = function() {
+      if (img.dataset.fallback) {
+        const fb = img.dataset.fallback; img.dataset.fallback = ''; img.src = fb;
+      } else {
+        img.style.display = 'none'; msg.style.display = 'block';
+      }
+    };
+    img.src = 'https://lh3.googleusercontent.com/d/' + id + '=w1600';
+  } else {
+    img.dataset.fallback = '';
+    img.onerror = function() { img.style.display = 'none'; msg.style.display = 'block'; };
+    img.src = photoUrl;
+  }
+  modal.classList.add('show');
+}
+function closePhoto() {
+  const modal = document.getElementById('photoModal');
+  const img = document.getElementById('photoModalImg');
+  modal.classList.remove('show');
+  img.onerror = null; img.src = ''; img.dataset.fallback = '';
+}
 function normalizeBatch(v) { return String(v || '').trim().replace(/\s+/g, '').toUpperCase(); }
 function batchStatusMarkup(batch) {
   if (!batch) return '<span class="batch-status new" title="首次到貨">✗</span>';
@@ -1884,7 +1937,7 @@ function renderRecords() {
         ${r.deliveryWindow ? `<div class="rec-note">⏱ ${r.deliveryWindow}</div>` : ''}
         ${r.deliveryInstruction ? `<div class="rec-note">📌 ${r.deliveryInstruction}</div>` : ''}
         ${r.note ? `<div class="rec-note">💬 ${r.note}</div>` : ''}
-        ${r.thumbnailUrl ? `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img class="rec-thumb" src="${r.thumbnailUrl}" loading="lazy" alt="到貨照片"></a>` : ''}
+        ${r.photoUrl ? `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto('${r.photoUrl}')">📷 點我看照片</button>` : ''}
         <div class="rec-actions">
           <button class="rec-action-btn" onclick="event.stopPropagation(); editRec('${r.id}')">✏️ 修改</button>
           <button class="rec-del-btn" onclick="event.stopPropagation(); deleteCloudRec('${r.id}')">🗑 刪除</button>
