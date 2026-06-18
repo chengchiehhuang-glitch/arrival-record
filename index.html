@@ -828,7 +828,7 @@ const SHEET_NAME = "到貨記錄";
 const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運公司",
   "來源地","品項","數量","單位","登記人員","備註","建立時間",
   "追蹤單號2","追蹤單號3","型號","批號",
-  "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","輸入完成"];
+  "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
 
 function ensureSchema(sheet) {
   if (sheet.getLastRow() === 0) {
@@ -897,6 +897,7 @@ function buildRows(sheet, data) {
     put(row, map, "照片連結", data.photoUrl || "");
     put(row, map, "曾經到貨", i.everArrived || "");
     put(row, map, "儲位", i.location || "");
+    put(row, map, "品項備註", i.note || "");
     put(row, map, "輸入完成", false);
     return row;
   });
@@ -1114,7 +1115,50 @@ function pushLineNotification(data) {
   } catch(err) { Logger.log('LINE push error: ' + err.message); }
 }
 
+// 診斷端點:呼叫 /exec?diag=lineCheck 會打 LINE API 回報 token / 配額 / Bot 狀態(token 本身不會回傳)
+function _runLineDiag() {
+  const out = { time: new Date().toISOString() };
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const token = props.getProperty('line_token') || '';
+    const groupId = props.getProperty('line_group_id') || '';
+    out.tokenPresent = !!token;
+    out.tokenLength = token.length;
+    out.tokenPrefix4 = token.slice(0, 4);
+    out.groupIdPresent = !!groupId;
+    out.groupId = groupId;
+    if (!token) {
+      out.diagnosis = 'token 不在';
+      return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+    }
+    const headers = { 'Authorization': 'Bearer ' + token };
+    const r1 = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', { method: 'get', headers: headers, muteHttpExceptions: true });
+    out.botInfo = { code: r1.getResponseCode(), body: r1.getContentText().slice(0, 300) };
+    const r2 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/quota', { method: 'get', headers: headers, muteHttpExceptions: true });
+    out.quota = { code: r2.getResponseCode(), body: r2.getContentText().slice(0, 200) };
+    const r3 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/quota/consumption', { method: 'get', headers: headers, muteHttpExceptions: true });
+    out.consumption = { code: r3.getResponseCode(), body: r3.getContentText().slice(0, 200) };
+    if (groupId) {
+      const r4 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'post', contentType: 'application/json',
+        headers: headers,
+        payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: '🔧 LINE 推播診斷 ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') }] }),
+        muteHttpExceptions: true
+      });
+      out.pushTest = { code: r4.getResponseCode(), body: r4.getContentText().slice(0, 500) };
+    }
+    if (r1.getResponseCode() === 401) out.diagnosis = 'token 失效 (401)';
+    else if (out.pushTest && out.pushTest.code === 429) out.diagnosis = '月配額用完 (429)';
+    else if (out.pushTest && out.pushTest.code === 200) out.diagnosis = '所有 API 呼叫 OK';
+    else out.diagnosis = '其他狀況,看 code';
+  } catch(err) {
+    out.error = err.message;
+  }
+  return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet(e) {
+  if (e && e.parameter && e.parameter.diag === 'lineCheck') return _runLineDiag();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
@@ -1493,7 +1537,7 @@ function populateForm(r) {
   const list = document.getElementById('itemsList');
   list.innerHTML = '';
   const items = r.items?.length ? r.items : [{ name:'', qty:'', unit:'' }];
-  items.forEach(i => addItem(i.name || '', i.qty || '', i.unit || '', i.model || i.name || '', i.batch || '', i.location || ''));
+  items.forEach(i => addItem(i.name || '', i.qty || '', i.unit || '', i.model || i.name || '', i.batch || '', i.location || '', i.note || ''));
 }
 
 function setEditMode(recordId) {
@@ -1574,7 +1618,7 @@ function collectTrackingNumbers() {
   inputs.forEach(inp => { const v = inp.value.trim(); if (v) arr.push(v); });
   return arr;
 }
-function addItem(name='', qty='', unit='', model='', batch='', location='') {
+function addItem(name='', qty='', unit='', model='', batch='', location='', note='') {
   const effectiveModel = model || name;
   const list = document.getElementById('itemsList');
   const idx = list.querySelectorAll('.item-row').length + 1;
@@ -1611,6 +1655,10 @@ function addItem(name='', qty='', unit='', model='', batch='', location='') {
     <div class="item-field">
       <label>儲位</label>
       <input class="item-input location-input" type="text" placeholder="例：A-12 / 三樓貨架" value="${esc(location)}">
+    </div>
+    <div class="item-field">
+      <label>備註</label>
+      <input class="item-input itemnote-input" type="text" placeholder="例：包裝破損 / 顏色不對 / 規格錯" value="${esc(note)}">
     </div>`;
   list.appendChild(row);
 }
@@ -1702,6 +1750,7 @@ async function saveRecord() {
     const batchInput = r.querySelector('.batch-input');
     const batch = batchInput ? normalizeBatch(batchInput.value) : '';
     const location = r.querySelector('.location-input')?.value.trim() || '';
+    const note = r.querySelector('.itemnote-input')?.value.trim() || '';
     if (batchInput) batchInput.value = batch;
     if (model || qty || batch) items.push({
       name: model,
@@ -1710,7 +1759,8 @@ async function saveRecord() {
       unit,
       batch,
       everArrived: batch && allBatches.has(batch.toUpperCase()) ? 'Y' : (batch ? 'N' : ''),
-      location
+      location,
+      note
     });
   });
 
@@ -1865,7 +1915,8 @@ async function fetchAndRefresh() {
           unit: r['單位']||'',
           batch,
           everArrived: r['曾經到貨'] || '',
-          location: r['儲位'] || ''
+          location: r['儲位'] || '',
+          note: r['品項備註'] || ''
         });
         if (batch) sheetBatches.add(batch);
       }
@@ -1895,7 +1946,7 @@ function renderRecords() {
   const df = document.getElementById('dateFilter').value;
   const filtered = records.filter(r => {
     const ms = !q || [r.sender, r.tracking, r.tracking2, r.tracking3, r.carrier, r.origin, r.operator, r.handler,
-      ...r.items.map(i=>i.name), ...r.items.map(i=>i.model), ...r.items.map(i=>i.batch), ...r.items.map(i=>i.location)]
+      ...r.items.map(i=>i.name), ...r.items.map(i=>i.model), ...r.items.map(i=>i.batch), ...r.items.map(i=>i.location), ...r.items.map(i=>i.note)]
       .some(v=>(v||'').toString().toLowerCase().includes(q));
     const md = !df || normalizeDateStr(r.date) === df;
     return ms && md;
@@ -1956,7 +2007,7 @@ function recordTimeValue(r) {
 }
 function trackingText(r) { return [r.tracking, r.tracking2, r.tracking3].filter(v => v && v !== '—').join(' / ') || '—'; }
 function itemText(i) {
-  return `${i.name || ''}${i.model ? ` <span style="color:var(--text3)">[型號:${i.model}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[批號:${i.batch}]</span>` : ''}${i.location ? ` <span style="color:var(--text3)">[儲位:${i.location}]</span>` : ''}`;
+  return `${i.name || ''}${i.model ? ` <span style="color:var(--text3)">[型號:${i.model}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[批號:${i.batch}]</span>` : ''}${i.location ? ` <span style="color:var(--text3)">[儲位:${i.location}]</span>` : ''}${i.note ? ` <span style="color:var(--text3)">[備註:${i.note}]</span>` : ''}`;
 }
 function toggleRec(id) { document.getElementById('rb-'+id)?.classList.toggle('open'); }
 function editRec(id) {
@@ -2020,11 +2071,11 @@ function updateStats() {
 // ── Export CSV ──
 function exportCSV() {
   if (!records.length) { showToast('沒有資料', 'err'); return; }
-  const h = ['記錄ID','日期','寄件廠商','追蹤單號','追蹤單號2','追蹤單號3','託運公司','來源地','品項','型號','數量','單位','批號','登記人員','處理人','儲位','派送時段','派送指示','其他備註','曾經到貨'];
+  const h = ['記錄ID','日期','寄件廠商','追蹤單號','追蹤單號2','追蹤單號3','託運公司','來源地','品項','型號','數量','單位','批號','登記人員','處理人','儲位','品項備註','派送時段','派送指示','其他備註','曾經到貨'];
   const rows = [];
   records.forEach(r => {
     if (!r.items.length) rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,'','','','','',r.operator,r.handler,'',r.deliveryWindow,r.deliveryInstruction,r.note,'']);
-    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,i.name,i.model,i.qty,i.unit,i.batch,r.operator,r.handler,i.location,r.deliveryWindow,r.deliveryInstruction,r.note,i.everArrived]));
+    else r.items.forEach(i => rows.push([r.id,r.date,r.sender,r.tracking,r.tracking2,r.tracking3,r.carrier,r.origin,i.name,i.model,i.qty,i.unit,i.batch,r.operator,r.handler,i.location,i.note,r.deliveryWindow,r.deliveryInstruction,r.note,i.everArrived]));
   });
   const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
