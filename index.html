@@ -1115,8 +1115,10 @@ function pushLineNotification(data) {
   } catch(err) { Logger.log('LINE push error: ' + err.message); }
 }
 
-// 診斷端點:呼叫 /exec?diag=lineCheck 會打 LINE API 回報 token / 配額 / Bot 狀態(token 本身不會回傳)
-function _runLineDiag() {
+// 診斷端點(token 本身不會回傳)
+//   /exec?diag=lineCheck         → 靜默檢查 token/配額/bot info(3 個 GET API,不吃配額、不跳訊息)
+//   /exec?diag=lineCheck&push=1  → 加打一條 push 進群組(吃 1 配額),用於驗證 bot 還在群組裡
+function _runLineDiag(pushOpt) {
   const out = { time: new Date().toISOString() };
   try {
     const props = PropertiesService.getScriptProperties();
@@ -1138,18 +1140,21 @@ function _runLineDiag() {
     out.quota = { code: r2.getResponseCode(), body: r2.getContentText().slice(0, 200) };
     const r3 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/quota/consumption', { method: 'get', headers: headers, muteHttpExceptions: true });
     out.consumption = { code: r3.getResponseCode(), body: r3.getContentText().slice(0, 200) };
-    if (groupId) {
+    if (pushOpt && groupId) {
       const r4 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
         method: 'post', contentType: 'application/json',
         headers: headers,
-        payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: '🔧 LINE 推播診斷 ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') }] }),
+        payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: '🔧 [手動診斷] 推播測試 ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') + ' — 收到代表 bot 在群組裡' }] }),
         muteHttpExceptions: true
       });
       out.pushTest = { code: r4.getResponseCode(), body: r4.getContentText().slice(0, 500) };
+    } else {
+      out.pushTest = 'skipped (加 &push=1 才會打)';
     }
     if (r1.getResponseCode() === 401) out.diagnosis = 'token 失效 (401)';
     else if (out.pushTest && out.pushTest.code === 429) out.diagnosis = '月配額用完 (429)';
-    else if (out.pushTest && out.pushTest.code === 200) out.diagnosis = '所有 API 呼叫 OK';
+    else if (out.pushTest && out.pushTest.code === 200) out.diagnosis = '所有 API 呼叫 OK (含 push 測試)';
+    else if (typeof out.pushTest === 'string') out.diagnosis = 'token/配額/bot info 都 OK (未測 push,加 &push=1 可驗證群組推播)';
     else out.diagnosis = '其他狀況,看 code';
   } catch(err) {
     out.error = err.message;
@@ -1158,7 +1163,7 @@ function _runLineDiag() {
 }
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.diag === 'lineCheck') return _runLineDiag();
+  if (e && e.parameter && e.parameter.diag === 'lineCheck') return _runLineDiag(e.parameter.push === '1');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
