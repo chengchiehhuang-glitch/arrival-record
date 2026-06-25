@@ -962,12 +962,29 @@ function handleUpdateRecord(data) {
     if (!sheet) return jsonOut({ok:false, error:'找不到工作表'});
     ensureSchema(sheet);
     const map = colMap(sheet);
-    const rows = findRowsByRecordId(sheet, data.id, map);
-    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
-    appendRecordRows(sheet, data);
-    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
+    const oldRowNums = findRowsByRecordId(sheet, data.id, map);
+    if (oldRowNums.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
+
+    const newRows = buildRows(sheet, data);
+    const completeCol = map["輸入完成"];
+    if (completeCol !== undefined) {
+      const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
+      newRows.forEach((row, i) => {
+        if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
+      });
+    }
+
+    if (oldRowNums.length === newRows.length) {
+      oldRowNums.forEach((rowNum, i) => {
+        sheet.getRange(rowNum, 1, 1, newRows[i].length).setValues([newRows[i]]);
+      });
+    } else {
+      appendRecordRows(sheet, data);
+      for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
+      applyCompleteCheckboxes(sheet);
+    }
     logAction("修改", data.id, data.operator, detailFromData(data));
-    return jsonOut({ok:true, updated: rows.length});
+    return jsonOut({ok:true, updated: oldRowNums.length});
   } catch(err) {
     return jsonOut({ok:false, error: err.message});
   } finally {
