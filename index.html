@@ -90,6 +90,35 @@ button { line-height: 1.2; }
 @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
 
 /* Tabs */
+.module-switch {
+  display: flex;
+  gap: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 120;
+}
+.module-switch-btn {
+  flex: 1;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.module-switch-btn.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+#module-arrival .header,
+#module-shipment .header { top: 63px; }
 .tab-bar {
   display: flex; background: var(--surface);
   border-bottom: 1px solid var(--border); padding: 0 14px;
@@ -397,6 +426,7 @@ details summary {
   background: var(--warn-light);
 }
 .item-row-stacked .batch-status.new::after { content: ' 首次'; }
+.shipment-card .item-row-stacked .batch-wrap .batch-input { padding-right: 12px; }
 .del-btn {
   background: none; border: none; color: var(--text3);
   cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s;
@@ -486,6 +516,17 @@ details summary {
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.18s;
 }
 .rec-del-btn:hover { background: var(--warn-light); }
+.ship-photo-area {
+  min-height: 180px;
+  margin-top: 6px;
+}
+.ship-photo-area #shipPreviewImg {
+  width: 100%; height: 100%; object-fit: cover;
+  position: absolute; inset: 0; display: none;
+  border-radius: calc(var(--radius) - 2px);
+}
+.ship-photo-clear { display: none; margin-top: 8px; }
+.ship-photo-clear.show { display: flex; }
 .date-group { margin-bottom: 18px; }
 .date-group-title {
   font-family: 'Noto Serif TC', serif;
@@ -543,6 +584,12 @@ details summary {
 </head>
 <body>
 
+<div class="module-switch">
+  <button type="button" class="module-switch-btn active" id="moduleBtn-arrival" onclick="switchModule('arrival')">📦 到貨系統</button>
+  <button type="button" class="module-switch-btn" id="moduleBtn-shipment" onclick="switchModule('shipment')">🚚 出貨系統</button>
+</div>
+
+<div id="module-arrival">
 <div class="header">
   <div class="header-brand">
     <div class="header-icon">📦</div>
@@ -806,8 +853,81 @@ details summary {
       </label>
       <div class="status-line" id="s4-status">已啟用</div>
     </div>
+</div>
+
+</div>
+
+</div>
+
+<div id="module-shipment" style="display:none">
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-icon">🚚</div>
+      <h1>出貨登記<small>出貨批號記錄</small></h1>
+    </div>
+    <div class="header-actions">
+      <div class="sync-badge" id="shipSyncBadge" onclick="fetchShipAndRefresh()">
+        <div class="sync-dot"></div>
+        <span id="shipSyncLabel">雲端連線</span>
+      </div>
+      <button type="button" class="header-settings-btn" onclick="switchModule('arrival'); showTab('settings')" title="設定">⚙️</button>
+    </div>
   </div>
 
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showShipTab('form')" id="ship-tab-form"><span class="ti">📝</span>出貨登記</button>
+    <button class="tab-btn" onclick="showShipTab('records')" id="ship-tab-records"><span class="ti">📋</span>出貨記錄</button>
+  </div>
+
+  <div class="view active" id="view-ship-form">
+    <div class="form-card show shipment-card">
+      <div class="form-card-header">
+        <span class="gemini-tag">Manual</span>
+        <span>出貨資料 — 請填寫後儲存</span>
+      </div>
+      <div class="edit-hint" id="shipEditHint"></div>
+      <div class="form-body">
+        <div class="field-group">
+          <div class="field-label">客戶</div>
+          <input type="text" class="field-input" id="ship_customer" placeholder="客戶名稱">
+        </div>
+        <div class="field-group">
+          <div class="field-label">品項明細</div>
+          <div class="items-list" id="shipItemsList"></div>
+          <button class="add-item-btn" onclick="addShipItem()">＋ 新增品項</button>
+        </div>
+        <div class="field-group">
+          <div class="field-label">登記人員</div>
+          <input type="text" class="field-input" id="ship_operator" placeholder="你的姓名">
+        </div>
+        <div class="field-group">
+          <div class="field-label">拍照存證（可選）</div>
+          <div class="scan-area ship-photo-area" id="shipPhotoArea" onclick="triggerShipCamera()">
+            <img id="shipPreviewImg" alt="出貨照片預覽">
+            <div class="scan-ph" id="shipPhotoPh">
+              <div class="si">📷</div>
+              <p>點擊拍照</p>
+              <small>或用下方「🖼️ 從相簿選擇」挑已拍好的照片</small>
+            </div>
+          </div>
+          <input type="file" id="shipFileInput" accept="image/*" capture="environment" onchange="handleShipPhoto(event)" style="display:none">
+          <input type="file" id="shipGalleryInput" accept="image/*" onchange="handleShipPhoto(event)" style="display:none">
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="document.getElementById('shipGalleryInput').click()">🖼️ 從相簿選擇</button>
+            <button class="btn btn-ghost ship-photo-clear" id="shipPhotoClearBtn" onclick="clearShipPhoto()">清除照片</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" id="shipSaveBtn" onclick="saveShipment()">☁️ 儲存出貨記錄</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-ship-records">
+    <div class="filter-bar">
+      <input type="text" class="filter-input" id="shipSearchInput" placeholder="🔍 搜尋客戶、品名、原編、批號、備註…" oninput="renderShipRecords()">
+    </div>
+    <div id="shipRecordsList"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -829,6 +949,9 @@ const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運
   "來源地","品項","數量","單位","登記人員","備註","建立時間",
   "追蹤單號2","追蹤單號3","型號","批號",
   "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
+const SHIP_SHEET_NAME = '出貨記錄';
+const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
+const SHIP_PHOTO_ROOT_NAME = '出貨系統照片';
 
 function ensureSchema(sheet) {
   if (sheet.getLastRow() === 0) {
@@ -907,6 +1030,139 @@ function appendRecordRows(sheet, data) {
   const rows = buildRows(sheet, data);
   rows.forEach(row => sheet.appendRow(row));
   applyCompleteCheckboxes(sheet);
+}
+
+function ensureShipSchema(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(SHIP_HEADERS);
+    sheet.getRange(1,1,1,SHIP_HEADERS.length)
+      .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    applyCompleteCheckboxes(sheet);
+    return;
+  }
+  const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
+  SHIP_HEADERS.forEach((h) => {
+    if (existing.indexOf(h) === -1) {
+      const col = sheet.getLastColumn() + 1;
+      sheet.getRange(1, col).setValue(h)
+        .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
+    }
+  });
+  applyCompleteCheckboxes(sheet);
+}
+
+function buildShipRows(sheet, data) {
+  ensureShipSchema(sheet);
+  const map = colMap(sheet);
+  const items = data.items && data.items.length ? data.items : [{}];
+  return items.map((i) => {
+    const row = Array(sheet.getLastColumn()).fill('');
+    put(row, map, '記錄ID', data.id);
+    put(row, map, '出貨日期', String(data.date || ''));
+    put(row, map, '客戶', data.customer || '');
+    put(row, map, '登記人員', data.operator || '');
+    put(row, map, '照片連結', data.photoUrl || '');
+    put(row, map, '建立時間', data.createdAt || '');
+    put(row, map, '出貨品名', i.productName || '');
+    put(row, map, '貨品原編', i.origCode || '');
+    put(row, map, '規格', i.spec || '');
+    put(row, map, '數量', i.qty || '');
+    put(row, map, '批號', i.batch || '');
+    put(row, map, '品項備註', i.note || '');
+    put(row, map, '輸入完成', false);
+    return row;
+  });
+}
+
+function appendShipmentRows(sheet, data) {
+  const rows = buildShipRows(sheet, data);
+  rows.forEach(row => sheet.appendRow(row));
+  applyCompleteCheckboxes(sheet);
+}
+
+function handleAddShipment(data) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHIP_SHEET_NAME);
+    if (!sheet) sheet = ss.insertSheet(SHIP_SHEET_NAME);
+    appendShipmentRows(sheet, data);
+    return jsonOut({ok:true});
+  } catch(err) {
+    return jsonOut({ok:false, error: err.message});
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleUpdateShipment(data) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
+    if (!sheet) return jsonOut({ok:false, error:'找不到工作表'});
+    ensureShipSchema(sheet);
+    const map = colMap(sheet);
+    const oldRowNums = findRowsByRecordId(sheet, data.id, map);
+    if (oldRowNums.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
+
+    const newRows = buildShipRows(sheet, data);
+    const completeCol = map['輸入完成'];
+    if (completeCol !== undefined) {
+      const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
+      newRows.forEach((row, i) => {
+        if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
+      });
+    }
+
+    if (oldRowNums.length === newRows.length) {
+      oldRowNums.forEach((rowNum, i) => {
+        sheet.getRange(rowNum, 1, 1, newRows[i].length).setValues([newRows[i]]);
+      });
+    } else {
+      appendShipmentRows(sheet, data);
+      for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
+      applyCompleteCheckboxes(sheet);
+    }
+    logAction('出貨修改', data.id, data.operator, (data.customer || '') + ' / ' + ((data.items && data.items[0] && data.items[0].productName) || ''));
+    return jsonOut({ok:true, updated: oldRowNums.length});
+  } catch(err) {
+    return jsonOut({ok:false, error: err.message});
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleDeleteShipment(data) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試'});
+  }
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
+    if (!sheet) return jsonOut({ok:true, deleted:0});
+    ensureShipSchema(sheet);
+    const map = colMap(sheet);
+    const rows = findRowsByRecordId(sheet, data.id, map);
+    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要刪除的記錄 ' + data.id});
+    const first = sheet.getRange(rows[0], 1, 1, sheet.getLastColumn()).getValues()[0];
+    const detail = (first[map['客戶']] || '') + ' / ' + (first[map['出貨品名']] || '');
+    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
+    logAction('出貨刪除', data.id, data.operator, data.detail || detail);
+    return jsonOut({ok:true, deleted: rows.length});
+  } catch(err) {
+    return jsonOut({ok:false, error: err.message});
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function detailFromData(data) {
@@ -1067,17 +1323,68 @@ function handlePhotoUpload(data) {
   }
 }
 
+function ensureShipPhotoFolder() {
+  const props = PropertiesService.getScriptProperties();
+  let folderId = props.getProperty('ship_photo_folder_id');
+  if (folderId) {
+    try { return DriveApp.getFolderById(folderId); }
+    catch(e) { /* 被刪了 */ }
+  }
+  const folder = DriveApp.createFolder(SHIP_PHOTO_ROOT_NAME);
+  props.setProperty('ship_photo_folder_id', folder.getId());
+  return folder;
+}
+
+function handleShipmentPhotoUpload(data) {
+  try {
+    const root = ensureShipPhotoFolder();
+    const sub = ensureDateSubfolder(root, data.dateYMD || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'));
+    let raw = data.base64;
+    if (raw.indexOf(',') !== -1) raw = raw.substring(raw.indexOf(',') + 1);
+    const decoded = Utilities.base64Decode(raw);
+    const ext = (data.mimeType || 'image/jpeg').split('/')[1].replace('jpeg', 'jpg');
+    const safe = function(v) {
+      return String(v || '').replace(/[\\/\\\\:*?"<>|]/g, '_').substring(0, 20);
+    };
+    const filename = (data.recordId || 'NO-ID') + '_' + safe(data.customer) + '_' + safe(data.batch) + '.' + ext;
+    const blob = Utilities.newBlob(decoded, data.mimeType || 'image/jpeg', filename);
+    const file = sub.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return jsonOut({
+      ok: true,
+      url: 'https://drive.google.com/file/d/' + file.getId() + '/view',
+      thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400',
+      fileId: file.getId(),
+      folderUrl: sub.getUrl()
+    });
+  } catch (err) {
+    return jsonOut({ ok: false, error: err.message });
+  }
+}
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.action === 'uploadPhoto') {
       return handlePhotoUpload(data);
     }
+    if (data.action === 'uploadShipmentPhoto') {
+      return handleShipmentPhotoUpload(data);
+    }
     if (data.action === 'updateRecord') {
       return handleUpdateRecord(data);
     }
     if (data.action === 'deleteRecord') {
       return handleDeleteRecord(data);
+    }
+    if (data.action === 'addShipment') {
+      return handleAddShipment(data);
+    }
+    if (data.action === 'updateShipment') {
+      return handleUpdateShipment(data);
+    }
+    if (data.action === 'deleteShipment') {
+      return handleDeleteShipment(data);
     }
     const lock = LockService.getScriptLock();
     try { lock.waitLock(15000); } catch(e) {
@@ -1181,6 +1488,26 @@ function _runLineDiag(pushOpt) {
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.diag === 'lineCheck') return _runLineDiag(e.parameter.push === '1');
+  if (e && e.parameter && e.parameter.module === 'shipment') {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
+    if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const tz = Session.getScriptTimeZone();
+    const rows = data.slice(1).map(function(r) {
+      const obj = {};
+      headers.forEach(function(h, i) {
+        let v = r[i];
+        if (v instanceof Date) {
+          v = (h === '出貨日期') ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : Utilities.formatDate(v, tz, 'yyyy-MM-dd HH:mm:ss');
+        }
+        obj[h] = v;
+      });
+      return obj;
+    });
+    return ContentService.createTextOutput(JSON.stringify({rows: rows})).setMimeType(ContentService.MimeType.JSON);
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
@@ -2147,8 +2474,339 @@ function normalizeDateStr(v) {
   return s.slice(0, 10);
 }
 
+// ── Shipment Module ──
+let shipRecords = [];
+let shipEditingId = '';
+let shipPhotoB64 = null;
+let shipPhotoMime = 'image/jpeg';
+let shipLoaded = false;
+
+function switchModule(m) {
+  const isShipment = m === 'shipment';
+  document.getElementById('module-arrival').style.display = isShipment ? 'none' : '';
+  document.getElementById('module-shipment').style.display = isShipment ? '' : 'none';
+  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment);
+  document.getElementById('moduleBtn-shipment').classList.toggle('active', isShipment);
+  if (isShipment) {
+    if (!document.querySelector('#module-shipment .view.active')) showShipTab('form');
+    if (!document.querySelector('#shipItemsList .item-row')) addShipItem();
+    document.getElementById('ship_operator').value = document.getElementById('ship_operator').value || CFG.operator;
+    if (!shipLoaded) fetchShipAndRefresh();
+  }
+}
+
+function showShipTab(name) {
+  document.querySelectorAll('#module-shipment .view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('#module-shipment .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-ship-' + name).classList.add('active');
+  document.getElementById('ship-tab-' + name).classList.add('active');
+  if (name === 'records') renderShipRecords();
+}
+
+function addShipItem(productName='', origCode='', spec='', qty='', batch='', note='') {
+  const list = document.getElementById('shipItemsList');
+  const idx = list.querySelectorAll('.item-row').length + 1;
+  const row = document.createElement('div');
+  row.className = 'item-row item-row-stacked';
+  row.innerHTML = `
+    <div class="item-row-header">
+      <span class="item-row-label">品項 ${idx}</span>
+      <button class="del-btn" onclick="this.closest('.item-row').remove(); reindexShipItems();">✕</button>
+    </div>
+    <div class="item-field">
+      <label>出貨品名</label>
+      <input class="item-input ship-product-input" type="text" placeholder="品名" value="${esc(productName)}">
+    </div>
+    <div class="item-row-grid-2">
+      <div class="item-field">
+        <label>貨品原編</label>
+        <input class="item-input ship-orig-input" type="text" placeholder="原編" value="${esc(origCode)}">
+      </div>
+      <div class="item-field">
+        <label>規格</label>
+        <input class="item-input ship-spec-input" type="text" placeholder="規格" value="${esc(spec)}">
+      </div>
+    </div>
+    <div class="item-row-grid-2">
+      <div class="item-field">
+        <label>數量</label>
+        <input class="item-input ship-qty-input" type="number" placeholder="數量" value="${esc(qty)}" min="0" style="text-align:center">
+      </div>
+      <div class="item-field">
+        <label>批號</label>
+        <input class="item-input ship-batch-input batch-input" type="text" placeholder="批號" value="${esc(batch)}">
+      </div>
+    </div>
+    <div class="item-field">
+      <label>備註</label>
+      <input class="item-input ship-note-input" type="text" placeholder="品項備註" value="${esc(note)}">
+    </div>`;
+  list.appendChild(row);
+}
+
+function reindexShipItems() {
+  document.querySelectorAll('#shipItemsList .item-row .item-row-label').forEach((el, i) => {
+    el.textContent = `品項 ${i + 1}`;
+  });
+  if (!document.querySelector('#shipItemsList .item-row')) addShipItem();
+}
+
+function triggerShipCamera() {
+  document.getElementById('shipFileInput').click();
+}
+
+async function handleShipPhoto(e) {
+  const file = (e.target.files || [])[0];
+  if (!file) return;
+  try {
+    const photo = await readPhotoFile(file);
+    shipPhotoB64 = photo.b64;
+    shipPhotoMime = file.type || 'image/jpeg';
+    document.getElementById('shipPreviewImg').src = photo.dataUrl;
+    document.getElementById('shipPreviewImg').style.display = 'block';
+    document.getElementById('shipPhotoPh').style.display = 'none';
+    document.getElementById('shipPhotoArea').classList.add('has-img');
+    document.getElementById('shipPhotoClearBtn').classList.add('show');
+  } catch (err) {
+    showToast('照片讀取失敗：' + err.message, 'err');
+  } finally {
+    e.target.value = '';
+  }
+}
+
+function clearShipPhoto() {
+  shipPhotoB64 = null;
+  shipPhotoMime = 'image/jpeg';
+  document.getElementById('shipPreviewImg').src = '';
+  document.getElementById('shipPreviewImg').style.display = 'none';
+  document.getElementById('shipPhotoPh').style.display = 'block';
+  document.getElementById('shipPhotoArea').classList.remove('has-img');
+  document.getElementById('shipPhotoClearBtn').classList.remove('show');
+}
+
+async function saveShipment() {
+  const customer = document.getElementById('ship_customer').value.trim();
+  if (!customer) { showToast('請填寫客戶', 'err'); return; }
+  if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
+
+  const items = [];
+  document.querySelectorAll('#shipItemsList .item-row').forEach(row => {
+    const productName = row.querySelector('.ship-product-input')?.value.trim() || '';
+    const origCode = row.querySelector('.ship-orig-input')?.value.trim() || '';
+    const spec = row.querySelector('.ship-spec-input')?.value.trim() || '';
+    const qty = row.querySelector('.ship-qty-input')?.value.trim() || '';
+    const batch = row.querySelector('.ship-batch-input')?.value.trim() || '';
+    const note = row.querySelector('.ship-note-input')?.value.trim() || '';
+    if (productName || origCode || spec || qty || batch || note) items.push({ productName, origCode, spec, qty, batch, note });
+  });
+  if (!items.length) items.push({ productName:'', origCode:'', spec:'', qty:'', batch:'', note:'' });
+
+  const isEditing = !!shipEditingId;
+  const oldRecord = isEditing ? shipRecords.find(r => r.id === shipEditingId) : null;
+  const record = {
+    id: shipEditingId || ('SHP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase()),
+    date: today(),
+    customer,
+    operator: document.getElementById('ship_operator').value.trim() || CFG.operator || '未知',
+    createdAt: oldRecord?.createdAt || new Date().toISOString(),
+    photoUrl: oldRecord?.photoUrl || '',
+    items
+  };
+
+  document.getElementById('shipSaveBtn').disabled = true;
+  showToast(isEditing ? '更新出貨記錄中…' : '儲存出貨記錄中…');
+  try {
+    if (shipPhotoB64) {
+      const photoRes = await fetch(CFG.gasUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'uploadShipmentPhoto',
+          recordId: record.id,
+          customer,
+          batch: items[0]?.batch || '',
+          dateYMD: record.date,
+          base64: shipPhotoB64,
+          mimeType: shipPhotoMime || 'image/jpeg'
+        })
+      });
+      const photoJson = await photoRes.json();
+      if (photoJson.ok && photoJson.url) record.photoUrl = photoJson.url;
+      else console.warn('出貨照片上傳失敗:', photoJson.error || photoJson);
+    }
+
+    const res = await fetch(CFG.gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: isEditing ? 'updateShipment' : 'addShipment', ...record })
+    });
+    const d = await res.json();
+    if (d.ok !== true) throw new Error(d.error || '儲存失敗');
+    resetShipEditMode();
+    await fetchShipAndRefresh();
+    showToast('已儲存出貨記錄 ✓', 'ok');
+  } catch (err) {
+    showToast('出貨儲存失敗：' + err.message, 'err');
+  } finally {
+    document.getElementById('shipSaveBtn').disabled = false;
+  }
+}
+
+async function fetchShipAndRefresh() {
+  if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
+  try {
+    document.getElementById('shipSyncBadge').className = 'sync-badge syncing';
+    document.getElementById('shipSyncLabel').textContent = '同步中…';
+    const res = await fetch(CFG.gasUrl + '?module=shipment');
+    const d = await res.json();
+    if (!d.rows) throw new Error('格式錯誤');
+    const grouped = {};
+    d.rows.forEach(r => {
+      const id = r['記錄ID'] || '';
+      if (!id) return;
+      if (!grouped[id]) {
+        const date = normalizeDateStr(r['出貨日期'] || r['建立時間']) || today();
+        grouped[id] = {
+          id,
+          date,
+          customer: r['客戶'] || '',
+          operator: r['登記人員'] || '',
+          photoUrl: r['照片連結'] || '',
+          createdAt: r['建立時間'] || '',
+          items: []
+        };
+      }
+      grouped[id].items.push({
+        productName: r['出貨品名'] || '',
+        origCode: r['貨品原編'] || '',
+        spec: r['規格'] || '',
+        qty: String(r['數量'] || ''),
+        batch: r['批號'] || '',
+        note: r['品項備註'] || ''
+      });
+    });
+    shipRecords = Object.values(grouped).sort((a, b) => (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''));
+    shipLoaded = true;
+    renderShipRecords();
+    document.getElementById('shipSyncBadge').className = 'sync-badge';
+    document.getElementById('shipSyncLabel').textContent = '雲端連線';
+  } catch (err) {
+    document.getElementById('shipSyncBadge').className = 'sync-badge offline';
+    document.getElementById('shipSyncLabel').textContent = '載入失敗';
+    showToast('出貨載入失敗：' + err.message, 'err');
+  }
+}
+
+function renderShipRecords() {
+  const c = document.getElementById('shipRecordsList');
+  if (!c) return;
+  const q = (document.getElementById('shipSearchInput')?.value || '').toLowerCase();
+  const filtered = shipRecords.filter(r => {
+    if (!q) return true;
+    return [r.customer, r.operator, ...r.items.map(i => i.productName), ...r.items.map(i => i.origCode),
+      ...r.items.map(i => i.spec), ...r.items.map(i => i.batch), ...r.items.map(i => i.note)]
+      .some(v => String(v || '').toLowerCase().includes(q));
+  });
+  if (!filtered.length) {
+    c.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>沒有符合的出貨記錄</p></div>`;
+    return;
+  }
+  const groups = {};
+  filtered.forEach(r => {
+    const key = normalizeDateStr(r.date || r.createdAt) || today();
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  c.innerHTML = Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(dateKey => {
+    const group = groups[dateKey].sort((a, b) => recordTimeValue(b) - recordTimeValue(a));
+    return `<div class="date-group">
+      <div class="date-group-title">📅 ${dateKey}（${group.length} 筆）</div>
+      ${group.map(r => `
+        <div class="record-card">
+          <div class="record-head" onclick="toggleShipRec('${r.id}')">
+            <div>
+              <div class="rec-id">${r.id}</div>
+              <div class="rec-sender">${esc(r.customer)}</div>
+              <div class="rec-meta"><span>📅 ${esc(r.date)}</span><span>📦 ${r.items.length} 項</span></div>
+            </div>
+            <div class="rec-right">
+              <span class="rec-cnt">${r.items.length} 項</span>
+              ${r.operator ? `<span class="rec-op">${esc(r.operator)}</span>` : ''}
+            </div>
+          </div>
+          <div class="record-body" id="srb-${r.id}">
+            <table class="rec-items-table">
+              ${r.items.length ? r.items.map(i => `<tr><td>${shipItemText(i)}</td><td>${esc(i.qty)}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text3)">無品項</td></tr>'}
+            </table>
+            ${r.photoUrl ? `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto('${r.photoUrl}')">📷 點我看照片</button>` : ''}
+            <div class="rec-actions">
+              <button class="rec-action-btn" onclick="event.stopPropagation(); editShipRec('${r.id}')">✏️ 修改</button>
+              <button class="rec-del-btn" onclick="event.stopPropagation(); deleteShipRec('${r.id}')">🗑 刪除</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function shipItemText(i) {
+  return `${esc(i.productName || '')}${i.origCode ? ` <span style="color:var(--text3)">[原編:${esc(i.origCode)}]</span>` : ''}${i.spec ? ` <span style="color:var(--text3)">[規格:${esc(i.spec)}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[批號:${esc(i.batch)}]</span>` : ''}${i.note ? ` <span style="color:var(--text3)">[備註:${esc(i.note)}]</span>` : ''}`;
+}
+
+function toggleShipRec(id) {
+  document.getElementById('srb-' + id)?.classList.toggle('open');
+}
+
+function editShipRec(id) {
+  const rec = shipRecords.find(r => r.id === id);
+  if (!rec) return;
+  document.getElementById('ship_customer').value = rec.customer || '';
+  document.getElementById('ship_operator').value = rec.operator || CFG.operator;
+  document.getElementById('shipItemsList').innerHTML = '';
+  (rec.items?.length ? rec.items : [{}]).forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.batch || '', i.note || ''));
+  shipEditingId = id;
+  clearShipPhoto();
+  document.getElementById('shipEditHint').textContent = `正在修改 ${id}`;
+  document.getElementById('shipEditHint').classList.add('show');
+  document.getElementById('shipSaveBtn').textContent = '✓ 更新出貨記錄';
+  showShipTab('form');
+  setTimeout(() => document.getElementById('module-shipment')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+async function deleteShipRec(id) {
+  const rec = shipRecords.find(r => r.id === id);
+  if (!rec) return;
+  const operator = CFG.operator || document.getElementById('ship_operator')?.value.trim() || rec.operator || '';
+  if (!confirm(`確定刪除 ${id}（${rec.customer || '未知客戶'}）？此動作無法復原。`)) return;
+  if (!confirm('請再次確認：真的要刪除此筆出貨記錄？')) return;
+  try {
+    showToast('刪除出貨記錄中…');
+    const res = await fetch(CFG.gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteShipment', id, operator })
+    });
+    const d = await res.json();
+    if (d.ok !== true) throw new Error(d.error || '刪除失敗');
+    await fetchShipAndRefresh();
+    showToast('已刪除出貨記錄', 'ok');
+  } catch (err) {
+    showToast('出貨刪除失敗：' + err.message, 'err');
+  }
+}
+
+function resetShipEditMode() {
+  document.getElementById('ship_customer').value = '';
+  document.getElementById('ship_operator').value = CFG.operator;
+  document.getElementById('shipItemsList').innerHTML = '';
+  addShipItem();
+  shipEditingId = '';
+  clearShipPhoto();
+  document.getElementById('shipEditHint').classList.remove('show');
+  document.getElementById('shipSaveBtn').textContent = '☁️ 儲存出貨記錄';
+}
+
 // ── Init ──
 document.getElementById('f_date').value = today();
+document.getElementById('ship_operator').value = CFG.operator;
+addShipItem();
 loadBatchSet(); loadLocal(); loadQueueLocal();
 updateSettingsUI(); updateStats();
 if (offlineQueue.length) { showOfflineNotice(); flushQueue(); }
