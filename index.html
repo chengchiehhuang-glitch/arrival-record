@@ -957,6 +957,10 @@ details summary {
           <input type="text" class="field-input" id="ship_customer" placeholder="客戶名稱">
         </div>
         <div class="field-group">
+          <div class="field-label">客戶編號（選填）</div>
+          <input type="text" class="field-input" id="ship_customer_code" placeholder="客戶編號（非必填）">
+        </div>
+        <div class="field-group">
           <div class="field-label">品項明細</div>
           <div class="items-list" id="shipItemsList"></div>
           <button class="add-item-btn" onclick="addShipItem()">＋ 新增品項</button>
@@ -1037,7 +1041,7 @@ const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運
   "追蹤單號2","追蹤單號3","型號","批號",
   "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
 const SHIP_SHEET_NAME = '出貨記錄';
-const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
+const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
 const SHIP_PHOTO_ROOT_NAME = '出貨系統照片';
 
 function ensureSchema(sheet) {
@@ -1148,6 +1152,7 @@ function buildShipRows(sheet, data) {
     put(row, map, '記錄ID', data.id);
     put(row, map, '出貨日期', String(data.date || ''));
     put(row, map, '客戶', data.customer || '');
+    put(row, map, '客戶編號', data.customerCode || '');
     put(row, map, '登記人員', data.operator || '');
     put(row, map, '照片連結', data.photoUrl || '');
     put(row, map, '建立時間', data.createdAt || '');
@@ -2771,6 +2776,7 @@ function clearShipPhoto() {
 
 async function saveShipment() {
   const customer = document.getElementById('ship_customer').value.trim();
+  const customerCode = document.getElementById('ship_customer_code').value.trim();
   if (!customer) { showToast('請填寫客戶', 'err'); return; }
   if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
 
@@ -2792,6 +2798,7 @@ async function saveShipment() {
     id: shipEditingId || ('SHP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase()),
     date: today(),
     customer,
+    customerCode,
     operator: document.getElementById('ship_operator').value.trim() || CFG.operator || '未知',
     createdAt: oldRecord?.createdAt || new Date().toISOString(),
     photoUrl: oldRecord?.photoUrl || '',
@@ -2853,6 +2860,7 @@ async function fetchShipAndRefresh() {
           id,
           date,
           customer: r['客戶'] || '',
+          customerCode: r['客戶編號'] || '',
           operator: r['登記人員'] || '',
           photoUrl: r['照片連結'] || '',
           createdAt: r['建立時間'] || '',
@@ -2886,7 +2894,7 @@ function renderShipRecords() {
   const q = (document.getElementById('shipSearchInput')?.value || '').toLowerCase();
   const filtered = shipRecords.filter(r => {
     if (!q) return true;
-    return [r.customer, r.operator, ...r.items.map(i => i.productName), ...r.items.map(i => i.origCode),
+    return [r.customer, r.customerCode, r.operator, ...r.items.map(i => i.productName), ...r.items.map(i => i.origCode),
       ...r.items.map(i => i.spec), ...r.items.map(i => i.batch), ...r.items.map(i => i.note)]
       .some(v => String(v || '').toLowerCase().includes(q));
   });
@@ -3075,6 +3083,7 @@ function editShipRec(id) {
   const rec = shipRecords.find(r => r.id === id);
   if (!rec) return;
   document.getElementById('ship_customer').value = rec.customer || '';
+  document.getElementById('ship_customer_code').value = rec.customerCode || '';
   document.getElementById('ship_operator').value = rec.operator || CFG.operator;
   document.getElementById('shipItemsList').innerHTML = '';
   (rec.items?.length ? rec.items : [{}]).forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.batch || '', i.note || ''));
@@ -3110,6 +3119,7 @@ async function deleteShipRec(id) {
 
 function resetShipEditMode() {
   document.getElementById('ship_customer').value = '';
+  document.getElementById('ship_customer_code').value = '';
   document.getElementById('ship_operator').value = CFG.operator;
   document.getElementById('shipItemsList').innerHTML = '';
   addShipItem();
