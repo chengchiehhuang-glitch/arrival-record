@@ -44,6 +44,18 @@
   --radius-sm: 10px;
   --shadow: none;
 }
+
+/* 🚚 出貨系統:整套換冷靛藍 + 冷色背景,跟到貨(暖綠)一眼分辨 */
+body.mod-shipment {
+  --accent: #4f7a94;
+  --accent-light: #e9f0f4;
+  --accent2: #4f7a94;
+  --google: #4f7a94;
+  --google-light: #e9f0f4;
+  --bg: #e9edf1;
+}
+#moduleBtn-shipment.active { background: #4f7a94; border-color: #4f7a94; }
+body.mod-shipment .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
   font-family: 'Noto Sans TC', sans-serif;
@@ -2487,6 +2499,7 @@ function switchModule(m) {
   document.getElementById('module-shipment').style.display = isShipment ? '' : 'none';
   document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment);
   document.getElementById('moduleBtn-shipment').classList.toggle('active', isShipment);
+  document.body.classList.toggle('mod-shipment', isShipment);
   if (isShipment) {
     if (!document.querySelector('#module-shipment .view.active')) showShipTab('form');
     if (!document.querySelector('#shipItemsList .item-row')) addShipItem();
