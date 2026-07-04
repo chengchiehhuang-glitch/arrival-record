@@ -2923,6 +2923,7 @@ function renderShipRecords() {
             </table>
             ${r.photoUrl ? `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto('${r.photoUrl}')">📷 點我看照片</button>` : ''}
             <div class="rec-actions">
+              <button class="rec-action-btn" onclick="event.stopPropagation(); printShipment('${r.id}')">🖨 列印出貨單</button>
               <button class="rec-action-btn" onclick="event.stopPropagation(); editShipRec('${r.id}')">✏️ 修改</button>
               <button class="rec-del-btn" onclick="event.stopPropagation(); deleteShipRec('${r.id}')">🗑 刪除</button>
             </div>
@@ -2938,6 +2939,136 @@ function shipItemText(i) {
 
 function toggleShipRec(id) {
   document.getElementById('srb-' + id)?.classList.toggle('open');
+}
+
+function printShipment(id) {
+  const r = shipRecords.find(r => r.id === id);
+  if (!r) return;
+  const w = window.open('', '_blank');
+  if (!w) {
+    showToast('無法開啟列印視窗，請允許彈出視窗', 'err');
+    return;
+  }
+  const hasSpec = (r.items || []).some(i => i.spec);
+  const customerCode = r.customerCode || '';
+  const rows = (r.items || []).length
+    ? r.items.map(i => `<tr>
+        <td>${esc(i.productName || '')}</td>
+        <td>${esc(i.batch || '')}</td>
+        ${hasSpec ? `<td>${esc(i.spec || '')}</td>` : ''}
+        <td class="qty">${esc(i.qty || '')}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="${hasSpec ? 4 : 3}" class="empty">無品項</td></tr>`;
+  w.document.write(`<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>出貨單 ${esc(r.id)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #111;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 16mm;
+      margin: 0 auto;
+      background: #fff;
+    }
+    h1 {
+      margin: 0 0 18px;
+      text-align: center;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+    .info {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .info th {
+      width: 92px;
+      padding: 6px 8px;
+      text-align: left;
+      font-weight: 600;
+      background: #f4f4f4;
+      border: 1px solid #bbb;
+    }
+    .info td {
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+    }
+    .items {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .items th,
+    .items td {
+      padding: 8px 10px;
+      border: 1px solid #999;
+      vertical-align: top;
+    }
+    .items th {
+      text-align: left;
+      background: #efefef;
+      font-weight: 600;
+    }
+    .qty {
+      width: 80px;
+      text-align: right;
+    }
+    .empty {
+      color: #666;
+      text-align: center;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+    @media print {
+      body { margin: 0; }
+      .sheet {
+        width: auto;
+        min-height: auto;
+        padding: 0;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <h1>出貨單</h1>
+    <table class="info">
+      <tr><th>出貨單號</th><td>${esc(r.id)}</td></tr>
+      <tr><th>客戶</th><td>${esc(r.customer || '')}</td></tr>
+      ${customerCode ? `<tr><th>客戶編號</th><td>${esc(customerCode)}</td></tr>` : ''}
+      <tr><th>出貨日期</th><td>${esc(r.date || '')}</td></tr>
+    </table>
+    <table class="items">
+      <thead>
+        <tr>
+          <th>品名</th>
+          <th>批號</th>
+          ${hasSpec ? '<th>規格</th>' : ''}
+          <th class="qty">數量</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </main>
+</body>
+</html>`);
+  w.document.close();
+  let printed = false;
+  const doPrint = () => { if (printed) return; printed = true; w.print(); };
+  w.onload = doPrint;
+  setTimeout(doPrint, 400);
 }
 
 function editShipRec(id) {
