@@ -1,5 +1,5 @@
 // 2026-05-09 重啟版 v2 — PWA + 21 欄 schema
-const CACHE = 'arrival-v8h';
+const CACHE = 'arrival-v8i';
 const ASSETS = [
   './',
   './index.html',

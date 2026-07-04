@@ -56,6 +56,15 @@ body.mod-shipment {
 }
 #moduleBtn-shipment.active { background: #4f7a94; border-color: #4f7a94; }
 body.mod-shipment .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+body.mod-trace {
+  --accent: #a8866c;
+  --accent-light: #f1ebe5;
+  --google: #a8866c;
+  --google-light: #f1ebe5;
+  --bg: #f1ede6;
+}
+#moduleBtn-trace.active { background: #a8866c; border-color: #a8866c; }
+body.mod-trace .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
   font-family: 'Noto Sans TC', sans-serif;
@@ -130,7 +139,8 @@ button { line-height: 1.2; }
   color: #fff;
 }
 #module-arrival .header,
-#module-shipment .header { top: 63px; }
+#module-shipment .header,
+#module-trace .header { top: 63px; }
 .tab-bar {
   display: flex; background: var(--surface);
   border-bottom: 1px solid var(--border); padding: 0 14px;
@@ -508,6 +518,48 @@ details summary {
 .rec-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin: 0 0 10px; cursor: pointer; display: block; background: var(--surface2); }
 .rec-photo-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .rec-photo-btn:active { background: var(--border); }
+.trace-search-wrap { padding: 18px 22px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.trace-search-input {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 16px;
+  padding: 0 16px;
+  outline: none;
+}
+.trace-search-input:focus { border-color: var(--accent); background: #fff; }
+.trace-results { padding: 18px 22px 36px; }
+.trace-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.trace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.trace-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; padding: 4px 10px;
+  font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap;
+}
+.trace-badge.arrival { background: #6b8e7f; }
+.trace-badge.shipment { background: #4f7a94; }
+.trace-date { font-size: 13px; color: var(--text2); }
+.trace-party { font-size: 16px; font-weight: 400; color: var(--text); margin-bottom: 3px; }
+.trace-product { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+.trace-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.trace-pill {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  padding: 4px 9px;
+  font-size: 12px;
+  color: var(--text2);
+}
 .photo-modal { display: none; position: fixed; inset: 0; top: 0; right: 0; bottom: 0; left: 0; z-index: 10000; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px; }
 .photo-modal.show { display: flex; }
 .photo-modal-inner { position: relative; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -599,6 +651,7 @@ details summary {
 <div class="module-switch">
   <button type="button" class="module-switch-btn active" id="moduleBtn-arrival" onclick="switchModule('arrival')">📦 到貨系統</button>
   <button type="button" class="module-switch-btn" id="moduleBtn-shipment" onclick="switchModule('shipment')">🚚 出貨系統</button>
+  <button type="button" class="module-switch-btn" id="moduleBtn-trace" onclick="switchModule('trace')">🔍 批號查詢</button>
 </div>
 
 <div id="module-arrival">
@@ -939,6 +992,28 @@ details summary {
       <input type="text" class="filter-input" id="shipSearchInput" placeholder="🔍 搜尋客戶、品名、原編、批號、備註…" oninput="renderShipRecords()">
     </div>
     <div id="shipRecordsList"></div>
+  </div>
+</div>
+
+<div id="module-trace" style="display:none">
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-icon">🔍</div>
+      <h1>批號追溯<small>查一個批號的到貨+出貨履歷</small></h1>
+    </div>
+    <div class="header-actions">
+      <div class="sync-badge" id="traceSyncBadge" onclick="fetchTraceData()">
+        <div class="sync-dot"></div>
+        <span id="traceSyncLabel">批號查詢</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="trace-search-wrap">
+    <input type="text" class="trace-search-input" id="trace_input" placeholder="輸入批號,例:LOT-2026-001" oninput="renderTrace()">
+  </div>
+  <div class="trace-results" id="traceResults">
+    <div class="empty-state"><div class="ei">🔍</div><p>輸入批號開始查詢</p></div>
   </div>
 </div>
 
@@ -2492,20 +2567,117 @@ let shipEditingId = '';
 let shipPhotoB64 = null;
 let shipPhotoMime = 'image/jpeg';
 let shipLoaded = false;
+let traceArrival = [];
+let traceShipment = [];
+let traceLoaded = false;
 
 function switchModule(m) {
   const isShipment = m === 'shipment';
-  document.getElementById('module-arrival').style.display = isShipment ? 'none' : '';
+  const isTrace = m === 'trace';
+  document.getElementById('module-arrival').style.display = (isShipment || isTrace) ? 'none' : '';
   document.getElementById('module-shipment').style.display = isShipment ? '' : 'none';
-  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment);
+  document.getElementById('module-trace').style.display = isTrace ? '' : 'none';
+  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment && !isTrace);
   document.getElementById('moduleBtn-shipment').classList.toggle('active', isShipment);
+  document.getElementById('moduleBtn-trace').classList.toggle('active', isTrace);
   document.body.classList.toggle('mod-shipment', isShipment);
+  document.body.classList.toggle('mod-trace', isTrace);
   if (isShipment) {
     if (!document.querySelector('#module-shipment .view.active')) showShipTab('form');
     if (!document.querySelector('#shipItemsList .item-row')) addShipItem();
     document.getElementById('ship_operator').value = document.getElementById('ship_operator').value || CFG.operator;
     if (!shipLoaded) fetchShipAndRefresh();
   }
+  if (isTrace && !traceLoaded) fetchTraceData();
+  if (isTrace) renderTrace();
+}
+
+async function fetchTraceData() {
+  if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
+  try {
+    document.getElementById('traceSyncBadge').className = 'sync-badge syncing';
+    document.getElementById('traceSyncLabel').textContent = '同步中…';
+    const [arrivalRes, shipmentRes] = await Promise.all([
+      fetch(CFG.gasUrl),
+      fetch(CFG.gasUrl + '?module=shipment')
+    ]);
+    const [arrivalJson, shipmentJson] = await Promise.all([
+      arrivalRes.json(),
+      shipmentRes.json()
+    ]);
+    traceArrival = Array.isArray(arrivalJson.rows) ? arrivalJson.rows : [];
+    traceShipment = Array.isArray(shipmentJson.rows) ? shipmentJson.rows : [];
+    traceLoaded = true;
+    renderTrace();
+    document.getElementById('traceSyncBadge').className = 'sync-badge';
+    document.getElementById('traceSyncLabel').textContent = '已同步';
+  } catch (err) {
+    document.getElementById('traceSyncBadge').className = 'sync-badge offline';
+    document.getElementById('traceSyncLabel').textContent = '載入失敗';
+    showToast('批號查詢載入失敗：' + err.message, 'err');
+  }
+}
+
+function renderTrace() {
+  const box = document.getElementById('traceResults');
+  const input = document.getElementById('trace_input');
+  if (!box || !input) return;
+  const q = input.value.trim().toUpperCase();
+  if (!q) {
+    box.innerHTML = `<div class="empty-state"><div class="ei">🔍</div><p>輸入批號開始查詢</p></div>`;
+    return;
+  }
+
+  const arrivals = traceArrival
+    .filter(r => String(r['批號'] || '').toUpperCase().includes(q))
+    .map(r => ({
+      type: '到貨',
+      kind: 'arrival',
+      date: normalizeDateStr(r['到貨日期'] || r['建立時間']) || '',
+      party: r['寄件廠商'] || '',
+      product: r['型號'] || r['品項'] || '',
+      qty: `${r['數量'] || ''}${r['單位'] ? ' ' + r['單位'] : ''}`.trim(),
+      batch: r['批號'] || '',
+      photo: r['照片連結'] || ''
+    }));
+  const shipments = traceShipment
+    .filter(r => String(r['批號'] || '').toUpperCase().includes(q))
+    .map(r => ({
+      type: '出貨',
+      kind: 'shipment',
+      date: normalizeDateStr(r['出貨日期'] || r['建立時間']) || '',
+      party: r['客戶'] || '',
+      product: r['出貨品名'] || '',
+      qty: String(r['數量'] || ''),
+      batch: r['批號'] || '',
+      photo: r['照片連結'] || ''
+    }));
+  const rows = arrivals.concat(shipments).sort((a, b) => traceDateValue(b.date) - traceDateValue(a.date));
+
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>查無此批號的紀錄</p></div>`;
+    return;
+  }
+  box.innerHTML = rows.map(r => `
+    <div class="trace-card">
+      <div class="trace-head">
+        <span class="trace-badge ${r.kind}">${r.type}</span>
+        <span class="trace-date">📅 ${esc(r.date || '未填日期')}</span>
+      </div>
+      <div class="trace-party">${esc(r.party || (r.kind === 'arrival' ? '未填廠商' : '未填客戶'))}</div>
+      <div class="trace-product">${esc(r.product || '未填品項')}</div>
+      <div class="trace-meta">
+        <span class="trace-pill">數量 ${esc(r.qty || '-')}</span>
+        <span class="trace-pill">批號 ${esc(r.batch || '-')}</span>
+      </div>
+      ${r.photo ? `<button class="rec-photo-btn" onclick="openPhoto(decodeURIComponent('${encodeURIComponent(r.photo)}'))">📷 點我看照片</button>` : ''}
+    </div>`).join('');
+}
+
+function traceDateValue(v) {
+  const normalized = normalizeDateStr(v);
+  const parsed = new Date(normalized || v || '');
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
 function showShipTab(name) {
