@@ -954,7 +954,8 @@ details summary {
       <div class="form-body">
         <div class="field-group">
           <div class="field-label">客戶</div>
-          <input type="text" class="field-input" id="ship_customer" placeholder="客戶名稱">
+          <input type="text" class="field-input" id="ship_customer" list="customerList" placeholder="客戶名稱（可輸入關鍵字搜尋歷史客戶）" autocomplete="off">
+          <datalist id="customerList"></datalist>
         </div>
         <div class="field-group">
           <div class="field-label">客戶編號（選填）</div>
@@ -2834,6 +2835,7 @@ async function saveShipment() {
     if (d.ok !== true) throw new Error(d.error || '儲存失敗');
     resetShipEditMode();
     await fetchShipAndRefresh();
+    updateCustomerDatalist();
     showToast('已儲存出貨記錄 ✓', 'ok');
   } catch (err) {
     showToast('出貨儲存失敗：' + err.message, 'err');
@@ -2878,6 +2880,7 @@ async function fetchShipAndRefresh() {
     });
     shipRecords = Object.values(grouped).sort((a, b) => (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''));
     shipLoaded = true;
+    updateCustomerDatalist();
     renderShipRecords();
     document.getElementById('shipSyncBadge').className = 'sync-badge';
     document.getElementById('shipSyncLabel').textContent = '雲端連線';
@@ -2886,6 +2889,14 @@ async function fetchShipAndRefresh() {
     document.getElementById('shipSyncLabel').textContent = '載入失敗';
     showToast('出貨載入失敗：' + err.message, 'err');
   }
+}
+
+function updateCustomerDatalist() {
+  const list = document.getElementById('customerList');
+  if (!list) return;
+  const customers = [...new Set(shipRecords.map(r => String(r.customer || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  list.innerHTML = customers.map(name => `<option value="${esc(name)}"></option>`).join('');
 }
 
 function renderShipRecords() {
