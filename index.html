@@ -197,12 +197,13 @@ button { line-height: 1.2; }
 .banner-body p { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
 .input-row { display: flex; gap: 10px; }
 .field-input {
-  flex: 1; min-height: 48px; padding: 10px 14px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 300;
-  font-family: 'Noto Sans TC', sans-serif; outline: none; transition: border-color 0.2s, background-color 0.2s; width: 100%;
+  flex: 1; min-height: 48px; padding: 12px 2px;
+  background: transparent; border: none; border-bottom: 1.5px solid var(--border2);
+  border-radius: 0; color: var(--text); font-size: 15px; font-weight: 400;
+  font-family: 'Noto Sans TC', sans-serif; outline: none; transition: border-color 0.2s; width: 100%;
 }
-.field-input:focus { border-color: var(--accent); background: var(--surface); }
+.field-input:focus { border-bottom-color: var(--accent); background: transparent; }
+.field-input::placeholder { color: var(--text3); font-weight: 300; }
 .btn-save {
   min-height: 48px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-btn);
   font-size: 13px; font-weight: 400; padding: 12px 18px; cursor: pointer;
@@ -216,7 +217,7 @@ button { line-height: 1.2; }
 .toggle-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; font-size: 13px; color: var(--text2); }
 .toggle-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .key-input-wrap { position: relative; flex: 1; }
-.key-input-wrap .field-input { padding-right: 42px; }
+.key-input-wrap .field-input { padding: 12px 42px 12px 2px; }
 .key-toggle-btn {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
   width: 30px; height: 30px; border: none; background: transparent;
@@ -374,11 +375,11 @@ details summary {
 .items-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .item-row { display: grid; grid-template-columns: minmax(88px,1.1fr) minmax(72px,0.9fr) 58px 52px minmax(80px,0.9fr) 32px; gap: 5px; align-items: center; }
 .item-input {
-  min-height: 44px; padding: 9px 10px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 2px; color: var(--text); font-size: 13px; font-weight: 300;
+  min-height: 44px; padding: 10px 2px; background: transparent; border: none; border-bottom: 1px solid var(--border);
+  border-radius: 0; color: var(--text); font-size: 13px; font-weight: 300;
   font-family: 'Noto Sans TC', sans-serif; outline: none; width: 100%; transition: border-color 0.2s;
 }
-.item-input:focus { border-color: var(--accent); }
+.item-input:focus { border-bottom-color: var(--accent); }
 .batch-wrap { position: relative; }
 .batch-wrap .item-input { padding-right: 26px; }
 .batch-status {
@@ -421,17 +422,18 @@ details summary {
 }
 .item-field .item-input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 2px;
   font-size: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 2px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
   color: var(--text);
   outline: none;
   transition: border-color 0.2s;
   font-family: 'Noto Sans TC', sans-serif;
 }
-.item-field .item-input:focus { border-color: var(--accent); }
+.item-field .item-input:focus { border-bottom-color: var(--accent); }
 .item-row-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -489,20 +491,20 @@ details summary {
 .add-tracking-btn:hover { border-color: var(--accent); color: var(--accent); }
 .add-tracking-btn.hidden { display: none; }
 .note-input {
-  width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 300;
+  width: 100%; padding: 12px 2px; background: transparent; border: none; border-bottom: 1.5px solid var(--border2);
+  border-radius: 0; color: var(--text); font-size: 14px; font-weight: 300;
   font-family: 'Noto Sans TC', sans-serif; outline: none; resize: none; min-height: 68px; transition: border-color 0.2s;
 }
-.note-input:focus { border-color: var(--accent); }
+.note-input:focus { border-bottom-color: var(--accent); }
 
 /* Records */
 .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; }
 .filter-input {
-  flex: 1; min-height: 48px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); color: var(--text); font-size: 13px; font-weight: 300;
+  flex: 1; min-height: 48px; padding: 12px 2px; background: transparent; border: none; border-bottom: 1.5px solid var(--border2);
+  border-radius: 0; color: var(--text); font-size: 13px; font-weight: 300;
   font-family: 'Noto Sans TC', sans-serif; outline: none; box-shadow: none; transition: border-color 0.2s;
 }
-.filter-input:focus { border-color: var(--accent); }
+.filter-input:focus { border-bottom-color: var(--accent); }
 .record-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); margin-bottom: 12px; box-shadow: none; overflow: hidden;
@@ -534,15 +536,16 @@ details summary {
 .trace-search-input {
   width: 100%;
   min-height: 54px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-btn);
-  background: var(--surface2);
+  border: none;
+  border-bottom: 1.5px solid var(--border2);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   font-size: 16px;
-  padding: 0 16px;
+  padding: 12px 2px;
   outline: none;
 }
-.trace-search-input:focus { border-color: var(--accent); background: #fff; }
+.trace-search-input:focus { border-bottom-color: var(--accent); background: transparent; }
 .trace-results { padding: 18px 22px 36px; }
 .trace-card {
   background: var(--surface);
