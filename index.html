@@ -942,6 +942,7 @@ details summary {
   <div class="tab-bar">
     <button class="tab-btn active" onclick="showShipTab('form')" id="ship-tab-form"><span class="ti">📝</span>出貨登記</button>
     <button class="tab-btn" onclick="showShipTab('records')" id="ship-tab-records"><span class="ti">📋</span>出貨記錄</button>
+    <button class="tab-btn" onclick="showShipTab('stats')" id="ship-tab-stats"><span class="ti">📊</span>統計</button>
   </div>
 
   <div class="view active" id="view-ship-form">
@@ -997,6 +998,21 @@ details summary {
       <input type="text" class="filter-input" id="shipSearchInput" placeholder="🔍 搜尋客戶、品名、原編、批號、備註…" oninput="renderShipRecords()">
     </div>
     <div id="shipRecordsList"></div>
+  </div>
+
+  <div class="view" id="view-ship-stats">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="ss-total">—</div><div class="stat-label">總出貨筆數</div></div>
+      <div class="stat-card"><div class="stat-val" id="ss-today">—</div><div class="stat-label">今日出貨</div></div>
+      <div class="stat-card"><div class="stat-val" id="ss-week">—</div><div class="stat-label">本週出貨</div></div>
+      <div class="stat-card"><div class="stat-val" id="ss-customers">—</div><div class="stat-label">不同客戶數</div></div>
+    </div>
+    <div class="section-title">客戶出貨排行（依總數量）</div>
+    <div id="shipCustomerList"></div>
+    <div style="margin-top:20px">
+      <div class="section-title">匯出資料</div>
+      <button class="export-btn" onclick="exportShipCSV()">📊 匯出 CSV（給主管 / Excel）</button>
+    </div>
   </div>
 </div>
 
@@ -2692,6 +2708,7 @@ function showShipTab(name) {
   document.getElementById('view-ship-' + name).classList.add('active');
   document.getElementById('ship-tab-' + name).classList.add('active');
   if (name === 'records') renderShipRecords();
+  if (name === 'stats') updateShipStats();
 }
 
 function addShipItem(productName='', origCode='', spec='', qty='', batch='', note='') {
@@ -2950,6 +2967,46 @@ function renderShipRecords() {
         </div>`).join('')}
     </div>`;
   }).join('');
+}
+
+function updateShipStats() {
+  const t = today();
+  const weekAgo = dateYMD(new Date(Date.now()-7*86400000));
+  document.getElementById('ss-total').textContent = shipRecords.length;
+  document.getElementById('ss-today').textContent = shipRecords.filter(r=>normalizeDateStr(r.date)===t).length;
+  document.getElementById('ss-week').textContent = shipRecords.filter(r=>normalizeDateStr(r.date)>=weekAgo).length;
+  const customers = [...new Set(shipRecords.map(r => String(r.customer || '').trim()).filter(Boolean))];
+  document.getElementById('ss-customers').textContent = customers.length;
+  const customerTotals = {};
+  shipRecords.forEach(r => {
+    const customer = String(r.customer || '').trim();
+    if (!customer) return;
+    if (!customerTotals[customer]) customerTotals[customer] = { qty: 0, count: 0 };
+    customerTotals[customer].count += 1;
+    (r.items || []).forEach(i => {
+      const qty = Number(i.qty);
+      customerTotals[customer].qty += Number.isFinite(qty) ? qty : 0;
+    });
+  });
+  const sorted = Object.entries(customerTotals).sort((a,b)=>b[1].qty-a[1].qty).slice(0,8);
+  document.getElementById('shipCustomerList').innerHTML = sorted.map(([n,c])=>`
+    <div class="sender-row"><span class="sender-name">${esc(n)}</span><span class="sender-cnt">${c.qty} 件 / ${c.count} 筆</span></div>
+  `).join('') || '<div style="color:var(--text3);font-size:13px;padding:8px">尚無資料</div>';
+}
+
+function exportShipCSV() {
+  if (!shipRecords.length) { showToast('沒有資料', 'err'); return; }
+  const h = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員'];
+  const rows = [];
+  shipRecords.forEach(r => {
+    if (!r.items.length) rows.push([r.id,r.date,r.customer,r.customerCode || '','','','','','','',r.operator]);
+    else r.items.forEach(i => rows.push([r.id,r.date,r.customer,r.customerCode || '',i.productName,i.origCode,i.spec,i.qty,i.batch,i.note,r.operator]));
+  });
+  const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `出貨記錄_${today()}.csv`; a.click();
+  showToast('CSV 已下載 ✓', 'ok');
 }
 
 function shipItemText(i) {
