@@ -652,6 +652,7 @@ details summary {
   <button type="button" class="module-switch-btn active" id="moduleBtn-arrival" onclick="switchModule('arrival')">📦 到貨系統</button>
   <button type="button" class="module-switch-btn" id="moduleBtn-shipment" onclick="switchModule('shipment')">🚚 出貨系統</button>
   <button type="button" class="module-switch-btn" id="moduleBtn-trace" onclick="switchModule('trace')">🔍 批號查詢</button>
+  <button type="button" class="module-switch-btn" id="moduleBtn-inventory" onclick="switchModule('inventory')">📊 庫存結存</button>
 </div>
 
 <div id="module-arrival">
@@ -1035,6 +1036,27 @@ details summary {
   </div>
   <div class="trace-results" id="traceResults">
     <div class="empty-state"><div class="ei">🔍</div><p>輸入批號開始查詢</p></div>
+  </div>
+</div>
+
+<div id="module-inventory" style="display:none">
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-icon">📊</div>
+      <h1>庫存結存<small>到貨 − 出貨 = 目前結存</small></h1>
+    </div>
+    <div class="header-actions">
+      <div class="sync-badge" id="invSyncBadge" onclick="fetchInventoryData()">
+        <div class="sync-dot"></div>
+        <span id="invSyncLabel">庫存結存</span>
+      </div>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" class="filter-input" id="inv_search" placeholder="🔍 搜尋產品編號、批號…" oninput="renderInventory()">
+  </div>
+  <div class="trace-results" id="inventoryResults">
+    <div class="empty-state"><div class="ei">📊</div><p>載入中…</p></div>
   </div>
 </div>
 
@@ -2592,18 +2614,25 @@ let shipLoaded = false;
 let traceArrival = [];
 let traceShipment = [];
 let traceLoaded = false;
+let invArrival = [];
+let invShipment = [];
+let invLoaded = false;
 
 function switchModule(m) {
   const isShipment = m === 'shipment';
   const isTrace = m === 'trace';
-  document.getElementById('module-arrival').style.display = (isShipment || isTrace) ? 'none' : '';
+  const isInventory = m === 'inventory';
+  document.getElementById('module-arrival').style.display = (isShipment || isTrace || isInventory) ? 'none' : '';
   document.getElementById('module-shipment').style.display = isShipment ? '' : 'none';
   document.getElementById('module-trace').style.display = isTrace ? '' : 'none';
-  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment && !isTrace);
+  document.getElementById('module-inventory').style.display = isInventory ? '' : 'none';
+  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment && !isTrace && !isInventory);
   document.getElementById('moduleBtn-shipment').classList.toggle('active', isShipment);
   document.getElementById('moduleBtn-trace').classList.toggle('active', isTrace);
+  document.getElementById('moduleBtn-inventory').classList.toggle('active', isInventory);
   document.body.classList.toggle('mod-shipment', isShipment);
   document.body.classList.toggle('mod-trace', isTrace);
+  document.body.classList.toggle('mod-inventory', isInventory);
   if (isShipment) {
     if (!document.querySelector('#module-shipment .view.active')) showShipTab('form');
     if (!document.querySelector('#shipItemsList .item-row')) addShipItem();
@@ -2612,6 +2641,8 @@ function switchModule(m) {
   }
   if (isTrace && !traceLoaded) fetchTraceData();
   if (isTrace) renderTrace();
+  if (isInventory && !invLoaded) fetchInventoryData();
+  if (isInventory) renderInventory();
 }
 
 async function fetchTraceData() {
@@ -2700,6 +2731,89 @@ function traceDateValue(v) {
   const normalized = normalizeDateStr(v);
   const parsed = new Date(normalized || v || '');
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+async function fetchInventoryData() {
+  if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
+  try {
+    document.getElementById('invSyncBadge').className = 'sync-badge syncing';
+    document.getElementById('invSyncLabel').textContent = '同步中…';
+    const [arrivalRes, shipmentRes] = await Promise.all([
+      fetch(CFG.gasUrl),
+      fetch(CFG.gasUrl + '?module=shipment')
+    ]);
+    const [arrivalJson, shipmentJson] = await Promise.all([arrivalRes.json(), shipmentRes.json()]);
+    invArrival = Array.isArray(arrivalJson.rows) ? arrivalJson.rows : [];
+    invShipment = Array.isArray(shipmentJson.rows) ? shipmentJson.rows : [];
+    invLoaded = true;
+    renderInventory();
+    document.getElementById('invSyncBadge').className = 'sync-badge';
+    document.getElementById('invSyncLabel').textContent = '已同步';
+  } catch (err) {
+    document.getElementById('invSyncBadge').className = 'sync-badge offline';
+    document.getElementById('invSyncLabel').textContent = '載入失敗';
+    showToast('庫存結存載入失敗：' + err.message, 'err');
+  }
+}
+
+function computeInventory() {
+  const map = {};
+  let skipped = 0;
+  const keyOf = (code, batch) => `${String(code||'').trim().toUpperCase()}｜${String(batch||'').trim().toUpperCase()}`;
+  invArrival.forEach(r => {
+    const code = r['型號'] || '';
+    const batch = r['批號'] || '';
+    if (!code) { skipped++; return; }
+    const k = keyOf(code, batch);
+    if (!map[k]) map[k] = { code: String(code||'').trim(), batch: String(batch||'').trim(), arrivalQty: 0, shipQty: 0 };
+    const qty = Number(r['數量']);
+    map[k].arrivalQty += Number.isFinite(qty) ? qty : 0;
+  });
+  invShipment.forEach(r => {
+    const code = r['貨品原編'] || '';
+    const batch = r['批號'] || '';
+    if (!code) { skipped++; return; }
+    const k = keyOf(code, batch);
+    if (!map[k]) map[k] = { code: String(code||'').trim(), batch: String(batch||'').trim(), arrivalQty: 0, shipQty: 0 };
+    const qty = Number(r['數量']);
+    map[k].shipQty += Number.isFinite(qty) ? qty : 0;
+  });
+  const rows = Object.values(map)
+    .map(v => ({ ...v, balance: v.arrivalQty - v.shipQty }))
+    .sort((a, b) => a.code.localeCompare(b.code, 'zh-Hant') || a.batch.localeCompare(b.batch, 'zh-Hant'));
+  rows.skippedCount = skipped;
+  return rows;
+}
+
+function renderInventory() {
+  const box = document.getElementById('inventoryResults');
+  const input = document.getElementById('inv_search');
+  if (!box || !input) return;
+  if (!invArrival.length && !invShipment.length) {
+    box.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>尚無到貨/出貨資料</p></div>`;
+    return;
+  }
+  const q = input.value.trim().toUpperCase();
+  const all = computeInventory();
+  const skippedNote = all.skippedCount ? `<div class="field-help" style="padding:8px 4px">⚠️ ${all.skippedCount} 筆記錄缺少產品編號（型號/貨品原編），未列入結存計算</div>` : '';
+  const rows = all.filter(item => {
+    if (!q) return true;
+    return String(item.code || '').toUpperCase().includes(q) || String(item.batch || '').toUpperCase().includes(q);
+  });
+  if (!rows.length) {
+    box.innerHTML = skippedNote + `<div class="empty-state"><div class="ei">🔍</div><p>查無符合的產品編號/批號</p></div>`;
+    return;
+  }
+  box.innerHTML = skippedNote + rows.map(item => `
+    <div class="trace-card">
+      <div class="trace-head"><span class="trace-badge arrival">產品</span><span class="trace-date">批號 ${esc(item.batch || '未填')}</span></div>
+      <div class="trace-party">${esc(item.code || '未填產品編號')}</div>
+      <div class="trace-meta">
+        <span class="trace-pill">到貨 ${item.arrivalQty}</span>
+        <span class="trace-pill">出貨 ${item.shipQty}</span>
+        <span class="trace-pill" style="${item.balance < 0 ? 'color:#c0392b;font-weight:700' : ''}">結存 ${item.balance}</span>
+      </div>
+    </div>`).join('');
 }
 
 function showShipTab(name) {
