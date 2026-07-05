@@ -39,9 +39,9 @@
   --warn: #b85a5a;
   --warn-light: #f8eeee;
   --orange: #a8866c;
-  --radius: 16px;
-  --radius-btn: 12px;
-  --radius-sm: 10px;
+  --radius: 2px;
+  --radius-btn: 2px;
+  --radius-sm: 2px;
   --shadow: none;
 }
 
@@ -54,7 +54,7 @@ body.mod-shipment {
   --google-light: #e9f0f4;
   --bg: #e9edf1;
 }
-#moduleBtn-shipment.active { background: #4f7a94; border-color: #4f7a94; }
+#moduleBtn-shipment.active { background: transparent; color: #4f7a94; border-bottom-color: #4f7a94; }
 body.mod-shipment .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 body.mod-trace {
   --accent: #a8866c;
@@ -63,8 +63,18 @@ body.mod-trace {
   --google-light: #f1ebe5;
   --bg: #f1ede6;
 }
-#moduleBtn-trace.active { background: #a8866c; border-color: #a8866c; }
+#moduleBtn-trace.active { background: transparent; color: #a8866c; border-bottom-color: #a8866c; }
 body.mod-trace .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+body.mod-inventory {
+  --accent: #5c6b73;
+  --accent-light: #eaeef0;
+  --accent2: #5c6b73;
+  --google: #5c6b73;
+  --google-light: #eaeef0;
+  --bg: #edf0f1;
+}
+#moduleBtn-inventory.active { background: transparent; color: #5c6b73; border-bottom-color: #5c6b73; }
+body.mod-inventory .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
   font-family: 'Noto Sans TC', sans-serif;
@@ -77,7 +87,7 @@ button { line-height: 1.2; }
 
 /* Header */
 .header {
-  background: var(--surface); border-bottom: 1px solid var(--border);
+  background: var(--surface); border-bottom: 1px solid var(--text);
   padding: 18px 22px 16px;
   display: flex; align-items: center; justify-content: space-between;
   position: sticky; top: 0; z-index: 100; box-shadow: none;
@@ -88,7 +98,7 @@ button { line-height: 1.2; }
   border: 1px solid var(--border); border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 17px;
 }
-.header h1 { font-family: 'Noto Serif TC', serif; font-size: 18px; font-weight: 400; letter-spacing: 0.02em; }
+.header h1 { font-family: 'Noto Sans TC', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
 .header h1 small { display: block; font-family: 'Noto Sans TC', sans-serif; font-size: 11px; font-weight: 300; color: var(--text3); margin-top: 1px; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .sync-badge {
@@ -98,7 +108,7 @@ button { line-height: 1.2; }
   font-size: 11px; font-weight: 400; color: var(--accent); cursor: pointer;
 }
 .header-settings-btn {
-  width: 36px; height: 36px; border-radius: 12px;
+  width: 36px; height: 36px; border-radius: 2px;
   border: 1px solid var(--border); background: var(--surface2);
   color: var(--text2); cursor: pointer; font-size: 16px;
   display: flex; align-items: center; justify-content: center;
@@ -124,19 +134,21 @@ button { line-height: 1.2; }
 .module-switch-btn {
   flex: 1;
   min-height: 42px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-btn);
-  background: var(--surface2);
-  color: var(--text2);
-  font-size: 13px;
-  font-weight: 400;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: all 0.18s;
 }
 .module-switch-btn.active {
-  background: var(--text);
-  border-color: var(--text);
-  color: #fff;
+  background: transparent;
+  border-bottom-color: var(--text);
+  color: var(--text);
 }
 #module-arrival .header,
 #module-shipment .header,
@@ -161,7 +173,7 @@ button { line-height: 1.2; }
 #offlineNotice {
   background: #f3eee5 !important;
   border: 1px solid #e3d5c4 !important;
-  border-radius: 12px !important;
+  border-radius: 2px !important;
   color: var(--orange) !important;
   font-weight: 400 !important;
   line-height: 1.7;
@@ -173,7 +185,7 @@ button { line-height: 1.2; }
   border-radius: var(--radius); padding: 24px; margin-bottom: 18px; box-shadow: none;
 }
 .banner-title {
-  font-family: 'Noto Serif TC', serif; font-size: 17px; font-weight: 400;
+  font-family: 'Noto Sans TC', sans-serif; font-size: 17px; font-weight: 700;
   display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
 }
 .step-pill {
@@ -220,7 +232,7 @@ details summary {
 .help-ol li { font-size: 12px; color: var(--text2); line-height: 2; }
 .help-link { color: var(--accent); font-weight: 400; text-decoration: none; border-bottom: 1px solid currentColor; }
 .code-block {
-  margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; position: relative;
+  margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; padding: 12px; position: relative;
 }
 .code-block pre {
   font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -228,7 +240,7 @@ details summary {
 }
 .copy-btn {
   margin-top: 8px; background: var(--text); color: #fff; border: none;
-  border-radius: 10px; font-size: 11px; font-weight: 400; padding: 8px 14px;
+  border-radius: 2px; font-size: 11px; font-weight: 400; padding: 8px 14px;
   cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
 }
 
@@ -249,7 +261,7 @@ details summary {
 }
 .scan-ph { text-align: center; padding: 20px; z-index: 1; }
 .scan-ph .si { font-size: 38px; margin-bottom: 10px; color: var(--accent2); }
-.scan-ph p { font-family: 'Noto Serif TC', serif; font-size: 18px; font-weight: 400; color: var(--text); }
+.scan-ph p { font-family: 'Noto Sans TC', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
 .scan-ph small { font-size: 12px; color: var(--text3); }
 .scan-overlay {
   display: none; position: absolute; inset: 0;
@@ -276,9 +288,9 @@ details summary {
 }
 .photo-queue.show { display: block; }
 .queue-status {
-  font-family: 'Noto Serif TC', serif;
+  font-family: 'Noto Sans TC', sans-serif;
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--text);
   margin-bottom: 8px;
 }
@@ -291,7 +303,7 @@ details summary {
 .queue-thumb {
   width: 58px;
   height: 58px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   object-fit: cover;
   flex: 0 0 auto;
@@ -345,7 +357,7 @@ details summary {
   margin: 14px 24px 0;
   padding: 10px 12px;
   border: 1px solid #d6e2db;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--accent-light);
   color: var(--accent);
   font-size: 12px;
@@ -355,15 +367,15 @@ details summary {
 .form-body { padding: 24px; }
 .field-group { margin-bottom: 16px; }
 .field-label {
-  font-family: 'Noto Serif TC', serif; font-size: 15px; font-weight: 400; color: var(--text);
-  letter-spacing: 0.02em; margin-bottom: 8px;
+  font-family: 'Noto Sans TC', sans-serif; font-size: 12.5px; font-weight: 700; color: var(--text);
+  letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
 }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .items-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .item-row { display: grid; grid-template-columns: minmax(88px,1.1fr) minmax(72px,0.9fr) 58px 52px minmax(80px,0.9fr) 32px; gap: 5px; align-items: center; }
 .item-input {
   min-height: 44px; padding: 9px 10px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); font-size: 13px; font-weight: 300;
+  border-radius: 2px; color: var(--text); font-size: 13px; font-weight: 300;
   font-family: 'Noto Sans TC', sans-serif; outline: none; width: 100%; transition: border-color 0.2s;
 }
 .item-input:focus { border-color: var(--accent); }
@@ -381,7 +393,7 @@ details summary {
   gap: 14px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 2px;
   background: var(--surface2);
   margin-bottom: 12px;
 }
@@ -394,9 +406,9 @@ details summary {
   border-bottom: 1px dashed var(--border);
 }
 .item-row-label {
-  font-family: 'Noto Serif TC', serif;
+  font-family: 'Noto Sans TC', sans-serif;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text);
   letter-spacing: 0.04em;
 }
@@ -413,7 +425,7 @@ details summary {
   font-size: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   color: var(--text);
   outline: none;
   transition: border-color 0.2s;
@@ -434,7 +446,7 @@ details summary {
   transform: translateY(-50%);
   font-size: 13px;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 2px;
   font-weight: 600;
   pointer-events: none;
 }
@@ -455,7 +467,7 @@ details summary {
 }
 .del-btn:hover { color: var(--warn); }
 .add-item-btn {
-  min-height: 44px; background: none; border: 1px dashed var(--border2); border-radius: 10px;
+  min-height: 44px; background: none; border: 1px dashed var(--border2); border-radius: 2px;
   color: var(--text2); font-size: 13px; padding: 10px; cursor: pointer; width: 100%;
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s;
 }
@@ -470,7 +482,7 @@ details summary {
 }
 #trackingFields .tracking-row .del-tracking-btn:hover { color: var(--warn); }
 .add-tracking-btn {
-  background: none; border: 1px dashed var(--border2); border-radius: 10px;
+  background: none; border: 1px dashed var(--border2); border-radius: 2px;
   color: var(--text2); font-size: 12px; padding: 8px; cursor: pointer; width: 100%;
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s; margin-top: 6px;
 }
@@ -501,7 +513,7 @@ details summary {
 }
 .record-head:active { background: var(--surface2); }
 .rec-id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; color: var(--accent2); margin-bottom: 4px; }
-.rec-sender { font-family: 'Noto Serif TC', serif; font-size: 17px; font-weight: 400; margin-bottom: 4px; }
+.rec-sender { font-family: 'Noto Sans TC', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
 .rec-meta { font-size: 11px; color: var(--text3); display: flex; gap: 8px; flex-wrap: wrap; line-height: 1.8; }
 .rec-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .rec-cnt {
@@ -514,9 +526,9 @@ details summary {
 .rec-items-table { width: 100%; margin-bottom: 10px; }
 .rec-items-table td { font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--bg); }
 .rec-items-table td:last-child { text-align: right; color: var(--text2); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.rec-note { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
-.rec-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin: 0 0 10px; cursor: pointer; display: block; background: var(--surface2); }
-.rec-photo-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.rec-note { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; padding: 8px 10px; margin-bottom: 10px; }
+.rec-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 2px; border: 1px solid var(--border); margin: 0 0 10px; cursor: pointer; display: block; background: var(--surface2); }
+.rec-photo-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; cursor: pointer; }
 .rec-photo-btn:active { background: var(--border); }
 .trace-search-wrap { padding: 18px 22px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .trace-search-input {
@@ -535,7 +547,7 @@ details summary {
 .trace-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 2px;
   padding: 14px;
   margin-bottom: 12px;
 }
@@ -563,19 +575,19 @@ details summary {
 .photo-modal { display: none; position: fixed; inset: 0; top: 0; right: 0; bottom: 0; left: 0; z-index: 10000; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px; }
 .photo-modal.show { display: flex; }
 .photo-modal-inner { position: relative; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.photo-modal-inner img { max-width: 100%; max-height: 78vh; border-radius: 8px; object-fit: contain; background: #fff; }
+.photo-modal-inner img { max-width: 100%; max-height: 78vh; border-radius: 2px; object-fit: contain; background: #fff; }
 .photo-modal-close { position: fixed; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.92); font-size: 20px; line-height: 1; cursor: pointer; color: #333; z-index: 10001; }
 .photo-modal-msg { color: #fff; font-size: 14px; text-align: center; max-width: 280px; line-height: 1.6; }
 .photo-modal-link { color: #fff; font-size: 13px; text-decoration: underline; }
 .rec-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .rec-action-btn {
-  min-height: 40px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); border-radius: 10px;
+  min-height: 40px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); border-radius: 2px;
   font-size: 12px; padding: 8px 14px; cursor: pointer;
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.18s;
 }
 .rec-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 .rec-del-btn {
-  min-height: 40px; background: none; border: 1px solid var(--warn); color: var(--warn); border-radius: 10px;
+  min-height: 40px; background: none; border: 1px solid var(--warn); color: var(--warn); border-radius: 2px;
   font-size: 12px; padding: 8px 14px; cursor: pointer;
   font-family: 'Noto Sans TC', sans-serif; transition: all 0.18s;
 }
@@ -593,9 +605,9 @@ details summary {
 .ship-photo-clear.show { display: flex; }
 .date-group { margin-bottom: 18px; }
 .date-group-title {
-  font-family: 'Noto Serif TC', serif;
+  font-family: 'Noto Sans TC', sans-serif;
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--text);
   padding: 10px 2px 12px;
   border-bottom: 1px solid var(--border);
@@ -612,16 +624,16 @@ details summary {
   border-radius: var(--radius); padding: 18px 20px; text-align: left; box-shadow: none;
   display: flex; justify-content: space-between; align-items: baseline; gap: 18px;
 }
-.stat-val { font-family: 'Noto Serif TC', serif; font-size: 34px; font-weight: 400; color: var(--text); margin-bottom: 0; line-height: 1; }
+.stat-val { font-family: 'Noto Sans TC', sans-serif; font-size: 34px; font-weight: 700; color: var(--text); margin-bottom: 0; line-height: 1; font-variant-numeric: tabular-nums; }
 .stat-label { font-size: 13px; color: var(--text2); text-align: right; }
-.section-title { font-family: 'Noto Serif TC', serif; font-size: 20px; font-weight: 400; color: var(--text); letter-spacing: 0.02em; margin: 32px 0 14px; }
+.section-title { font-family: 'Noto Sans TC', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; margin: 32px 0 14px; }
 .sender-row {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px 18px;
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 8px; box-shadow: none;
 }
-.sender-name { font-family: 'Noto Serif TC', serif; font-size: 15px; font-weight: 400; }
+.sender-name { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; font-weight: 600; }
 .sender-cnt { font-size: 12px; color: var(--text2); }
 .export-btn {
   width: 100%; min-height: 48px; padding: 13px 18px; background: var(--surface); border: 1px solid var(--border);
@@ -636,7 +648,7 @@ details summary {
 .toast {
   position: fixed; bottom: 24px; left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: var(--surface); color: var(--text); padding: 12px 20px; border-radius: 16px;
+  background: var(--surface); color: var(--text); padding: 12px 20px; border-radius: 2px;
   border: 1px solid var(--border); font-size: 13px; font-weight: 400; opacity: 0; transition: all 0.28s;
   z-index: 9999; white-space: nowrap; box-shadow: none;
   max-width: 90vw; text-align: center;
@@ -764,7 +776,8 @@ details summary {
       </div>
       <div class="field-group">
         <div class="field-label">登記人員</div>
-        <input type="text" class="field-input" id="f_operator" placeholder="你的姓名">
+        <input type="text" class="field-input" id="f_operator" list="operatorList" placeholder="你的姓名" autocomplete="off">
+        <datalist id="operatorList"></datalist>
       </div>
       <div class="field-group">
         <div class="field-label">處理人（拆貨 / 收貨者）</div>
@@ -970,7 +983,8 @@ details summary {
         </div>
         <div class="field-group">
           <div class="field-label">登記人員</div>
-          <input type="text" class="field-input" id="ship_operator" placeholder="你的姓名">
+          <input type="text" class="field-input" id="ship_operator" list="shipOperatorList" placeholder="你的姓名" autocomplete="off">
+          <datalist id="shipOperatorList"></datalist>
         </div>
         <div class="field-group">
           <div class="field-label">拍照存證（可選）</div>
@@ -2289,6 +2303,7 @@ async function saveRecord() {
     else records.unshift(record);
     rememberBatches(items);
     saveLocal();
+    updateOperatorDatalist();
     updateStats();
     if (document.getElementById('view-records').classList.contains('active')) renderRecords();
     resetEditMode();
@@ -2303,6 +2318,7 @@ async function saveRecord() {
       records.unshift(record);
       rememberBatches(items);
       saveLocal();
+      updateOperatorDatalist();
       updateStats();
       offlineQueue.push(record);
       saveQueueLocal();
@@ -2405,6 +2421,7 @@ async function fetchAndRefresh() {
     allBatches = sheetBatches;
     saveBatchSet();
     saveLocal(); updateStats();
+    updateOperatorDatalist();
     if (document.getElementById('view-records').classList.contains('active')) renderRecords();
     showToast(`已載入 ${records.length} 筆記錄 ✓`, 'ok');
   } catch(e) { showToast('載入失敗：' + e.message, 'err'); }
@@ -2413,6 +2430,13 @@ async function fetchAndRefresh() {
 // ── Local Cache ──
 function saveLocal() { try { localStorage.setItem('arrival-records', JSON.stringify(records)); } catch {} }
 function loadLocal() { try { records = JSON.parse(localStorage.getItem('arrival-records') || '[]'); } catch { records = []; } }
+function updateOperatorDatalist() {
+  const list = document.getElementById('operatorList');
+  if (!list) return;
+  const operators = [...new Set(records.map(r => String(r.operator || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  list.innerHTML = operators.map(name => `<option value="${esc(name)}"></option>`).join('');
+}
 function saveQueueLocal() { try { localStorage.setItem('arrival-queue', JSON.stringify(offlineQueue)); } catch {} }
 function loadQueueLocal() { try { offlineQueue = JSON.parse(localStorage.getItem('arrival-queue') || '[]'); } catch { offlineQueue = []; } }
 function showOfflineNotice() {
@@ -2967,6 +2991,7 @@ async function saveShipment() {
     resetShipEditMode();
     await fetchShipAndRefresh();
     updateCustomerDatalist();
+    updateShipOperatorDatalist();
     showToast('已儲存出貨記錄 ✓', 'ok');
   } catch (err) {
     showToast('出貨儲存失敗：' + err.message, 'err');
@@ -3012,6 +3037,7 @@ async function fetchShipAndRefresh() {
     shipRecords = Object.values(grouped).sort((a, b) => (b.createdAt || b.date || '').localeCompare(a.createdAt || a.date || ''));
     shipLoaded = true;
     updateCustomerDatalist();
+    updateShipOperatorDatalist();
     renderShipRecords();
     document.getElementById('shipSyncBadge').className = 'sync-badge';
     document.getElementById('shipSyncLabel').textContent = '雲端連線';
@@ -3028,6 +3054,14 @@ function updateCustomerDatalist() {
   const customers = [...new Set(shipRecords.map(r => String(r.customer || '').trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
   list.innerHTML = customers.map(name => `<option value="${esc(name)}"></option>`).join('');
+}
+
+function updateShipOperatorDatalist() {
+  const list = document.getElementById('shipOperatorList');
+  if (!list) return;
+  const operators = [...new Set(shipRecords.map(r => String(r.operator || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  list.innerHTML = operators.map(name => `<option value="${esc(name)}"></option>`).join('');
 }
 
 function renderShipRecords() {
