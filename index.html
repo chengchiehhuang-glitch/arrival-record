@@ -985,13 +985,13 @@ details summary {
           <datalist id="shipOperatorList"></datalist>
         </div>
         <div class="field-group">
-          <div class="field-label">拍照存證（可選）</div>
+          <div class="field-label">拍照辨識 / 存證</div>
           <div class="scan-area ship-photo-area" id="shipPhotoArea" onclick="triggerShipCamera()">
             <img id="shipPreviewImg" alt="出貨照片預覽">
             <div class="scan-ph" id="shipPhotoPh">
               <div class="si">📷</div>
               <p>點擊拍照</p>
-              <small>或用下方「🖼️ 從相簿選擇」挑已拍好的照片</small>
+              <small>拍一張手寫出貨單，自動辨識帶入品項；也可用下方「🖼️ 從相簿選擇」挑已拍好的照片</small>
             </div>
           </div>
           <input type="file" id="shipFileInput" accept="image/*" capture="environment" onchange="handleShipPhoto(event)" style="display:none">
@@ -1092,7 +1092,7 @@ const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運
   "追蹤單號2","追蹤單號3","型號","批號",
   "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
 const SHIP_SHEET_NAME = '出貨記錄';
-const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
+const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','單位','批號','出貨批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
 const SHIP_PHOTO_ROOT_NAME = '出貨系統照片';
 
 function ensureSchema(sheet) {
@@ -1211,7 +1211,9 @@ function buildShipRows(sheet, data) {
     put(row, map, '貨品原編', i.origCode || '');
     put(row, map, '規格', i.spec || '');
     put(row, map, '數量', i.qty || '');
+    put(row, map, '單位', i.unit || '');
     put(row, map, '批號', i.batch || '');
+    put(row, map, '出貨批號', i.shipBatch || '');
     put(row, map, '品項備註', i.note || '');
     put(row, map, '輸入完成', false);
     return row;
@@ -2847,7 +2849,7 @@ function showShipTab(name) {
   if (name === 'stats') updateShipStats();
 }
 
-function addShipItem(productName='', origCode='', spec='', qty='', batch='', note='') {
+function addShipItem(productName='', origCode='', spec='', qty='', unit='', batch='', shipBatch='', note='') {
   const list = document.getElementById('shipItemsList');
   const idx = list.querySelectorAll('.item-row').length + 1;
   const row = document.createElement('div');
@@ -2877,8 +2879,18 @@ function addShipItem(productName='', origCode='', spec='', qty='', batch='', not
         <input class="item-input ship-qty-input" type="number" placeholder="數量" value="${esc(qty)}" min="0" style="text-align:center">
       </div>
       <div class="item-field">
-        <label>批號</label>
+        <label>單位</label>
+        <input class="item-input ship-unit-input" type="text" placeholder="單位" value="${esc(unit)}">
+      </div>
+    </div>
+    <div class="item-row-grid-2">
+      <div class="item-field">
+        <label>貨品批號</label>
         <input class="item-input ship-batch-input batch-input" type="text" placeholder="批號" value="${esc(batch)}">
+      </div>
+      <div class="item-field">
+        <label>出貨批號</label>
+        <input class="item-input ship-ship-batch-input" type="text" placeholder="出貨批號" value="${esc(shipBatch)}">
       </div>
     </div>
     <div class="item-field">
@@ -2911,10 +2923,121 @@ async function handleShipPhoto(e) {
     document.getElementById('shipPhotoPh').style.display = 'none';
     document.getElementById('shipPhotoArea').classList.add('has-img');
     document.getElementById('shipPhotoClearBtn').classList.add('show');
+    if (CFG.geminiKey) {
+      await analyzeShipImage();
+    } else {
+      showToast('未設定 Gemini Key，僅留存照片、未辨識');
+    }
   } catch (err) {
     showToast('照片讀取失敗：' + err.message, 'err');
   } finally {
     e.target.value = '';
+  }
+}
+
+async function analyzeShipImage() {
+  if (!shipPhotoB64) return;
+  if (!CFG.geminiKey) { showToast('未設定 Gemini Key，僅留存照片、未辨識'); return; }
+  const submitted = shipPhotoB64;
+  const submittedMime = shipPhotoMime || 'image/jpeg';
+  const overlay = document.getElementById('scanOverlay');
+
+  showToast('辨識中…');
+  overlay?.classList.add('show');
+
+  const prompt = `你是倉庫出貨單辨識助手。分析這張「手寫或印刷的出貨單」照片，提取資訊回傳 JSON。
+欄位說明：
+- customer: 客戶名稱（表單上「客戶」欄）
+- items: 品項明細陣列，每項含 productName(出貨品名), origCode(產品原編/貨品原編), spec(尺寸/規格), qty(數量純數字), unit(單位，如 R/斤/箱/個/卷/kg)
+一張單通常有多行品項，每一行都要辨識成 items 的一個元素。
+辨識不到的欄位填空字串，items 辨識不到回傳空陣列 []。
+注意：批號、出貨批號欄位不用辨識（表單上沒有，那是內部資訊）。
+範例：{"customer":"","items":[{"productName":"","origCode":"","spec":"","qty":"","unit":""}]}`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${CFG.geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: submittedMime, data: submitted } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'object',
+              properties: {
+                customer: { type: 'string' },
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      productName: { type: 'string' },
+                      origCode: { type: 'string' },
+                      spec: { type: 'string' },
+                      qty: { type: 'string' },
+                      unit: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const d = await res.json();
+    const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    let clean = txt.replace(/```json\n?|\n?```/g, '').trim();
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) clean = m[0];
+    let parsed;
+    try { parsed = JSON.parse(clean); }
+    catch {
+      const fixed = clean
+        .replace(/,\s*([}\]])/g, '$1')
+        .replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+      parsed = JSON.parse(fixed);
+    }
+
+    if (shipPhotoB64 !== submitted) {
+      showToast('照片已切換，已略過舊辨識結果', 'err');
+      return;
+    }
+
+    const customer = String(parsed.customer || '').trim();
+    const customerInput = document.getElementById('ship_customer');
+    if (customer && customerInput && !customerInput.value.trim()) customerInput.value = customer;
+
+    const list = document.getElementById('shipItemsList');
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    list.innerHTML = '';
+    if (items.length) {
+      items.forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.unit || '', '', '', ''));
+    } else {
+      addShipItem();
+    }
+    showToast('辨識完成，請核對並補批號 ✓', 'ok');
+  } catch (err) {
+    console.error(err);
+    if (shipPhotoB64 !== submitted) return;
+    showToast('出貨辨識失敗：' + err.message.slice(0, 40), 'err');
+  } finally {
+    overlay?.classList.remove('show');
   }
 }
 
@@ -2940,11 +3063,13 @@ async function saveShipment() {
     const origCode = row.querySelector('.ship-orig-input')?.value.trim() || '';
     const spec = row.querySelector('.ship-spec-input')?.value.trim() || '';
     const qty = row.querySelector('.ship-qty-input')?.value.trim() || '';
+    const unit = row.querySelector('.ship-unit-input')?.value.trim() || '';
     const batch = row.querySelector('.ship-batch-input')?.value.trim() || '';
+    const shipBatch = row.querySelector('.ship-ship-batch-input')?.value.trim() || '';
     const note = row.querySelector('.ship-note-input')?.value.trim() || '';
-    if (productName || origCode || spec || qty || batch || note) items.push({ productName, origCode, spec, qty, batch, note });
+    if (productName || origCode || spec || qty || unit || batch || shipBatch || note) items.push({ productName, origCode, spec, qty, unit, batch, shipBatch, note });
   });
-  if (!items.length) items.push({ productName:'', origCode:'', spec:'', qty:'', batch:'', note:'' });
+  if (!items.length) items.push({ productName:'', origCode:'', spec:'', qty:'', unit:'', batch:'', shipBatch:'', note:'' });
 
   const isEditing = !!shipEditingId;
   const oldRecord = isEditing ? shipRecords.find(r => r.id === shipEditingId) : null;
@@ -3028,7 +3153,9 @@ async function fetchShipAndRefresh() {
         origCode: r['貨品原編'] || '',
         spec: r['規格'] || '',
         qty: String(r['數量'] || ''),
+        unit: r['單位'] || '',
         batch: r['批號'] || '',
+        shipBatch: r['出貨批號'] || '',
         note: r['品項備註'] || ''
       });
     });
@@ -3069,7 +3196,7 @@ function renderShipRecords() {
   const filtered = shipRecords.filter(r => {
     if (!q) return true;
     return [r.customer, r.customerCode, r.operator, ...r.items.map(i => i.productName), ...r.items.map(i => i.origCode),
-      ...r.items.map(i => i.spec), ...r.items.map(i => i.batch), ...r.items.map(i => i.note)]
+      ...r.items.map(i => i.spec), ...r.items.map(i => i.unit), ...r.items.map(i => i.batch), ...r.items.map(i => i.shipBatch), ...r.items.map(i => i.note)]
       .some(v => String(v || '').toLowerCase().includes(q));
   });
   if (!filtered.length) {
@@ -3142,11 +3269,11 @@ function updateShipStats() {
 
 function exportShipCSV() {
   if (!shipRecords.length) { showToast('沒有資料', 'err'); return; }
-  const h = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','批號','品項備註','登記人員'];
+  const h = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','單位','批號','出貨批號','品項備註','登記人員'];
   const rows = [];
   shipRecords.forEach(r => {
-    if (!r.items.length) rows.push([r.id,r.date,r.customer,r.customerCode || '','','','','','','',r.operator]);
-    else r.items.forEach(i => rows.push([r.id,r.date,r.customer,r.customerCode || '',i.productName,i.origCode,i.spec,i.qty,i.batch,i.note,r.operator]));
+    if (!r.items.length) rows.push([r.id,r.date,r.customer,r.customerCode || '','','','','','','','','',r.operator]);
+    else r.items.forEach(i => rows.push([r.id,r.date,r.customer,r.customerCode || '',i.productName,i.origCode,i.spec,i.qty,i.unit,i.batch,i.shipBatch,i.note,r.operator]));
   });
   const csv = [h,...rows].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
@@ -3156,7 +3283,7 @@ function exportShipCSV() {
 }
 
 function shipItemText(i) {
-  return `${esc(i.productName || '')}${i.origCode ? ` <span style="color:var(--text3)">[原編:${esc(i.origCode)}]</span>` : ''}${i.spec ? ` <span style="color:var(--text3)">[規格:${esc(i.spec)}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[批號:${esc(i.batch)}]</span>` : ''}${i.note ? ` <span style="color:var(--text3)">[備註:${esc(i.note)}]</span>` : ''}`;
+  return `${esc(i.productName || '')}${i.origCode ? ` <span style="color:var(--text3)">[原編:${esc(i.origCode)}]</span>` : ''}${i.spec ? ` <span style="color:var(--text3)">[規格:${esc(i.spec)}]</span>` : ''}${i.unit ? ` <span style="color:var(--text3)">[單位:${esc(i.unit)}]</span>` : ''}${i.batch ? ` <span style="color:var(--text3)">[貨品批號:${esc(i.batch)}]</span>` : ''}${i.shipBatch ? ` <span style="color:var(--text3)">[出貨批號:${esc(i.shipBatch)}]</span>` : ''}${i.note ? ` <span style="color:var(--text3)">[備註:${esc(i.note)}]</span>` : ''}`;
 }
 
 function toggleShipRec(id) {
@@ -3172,15 +3299,20 @@ function printShipment(id) {
     return;
   }
   const hasSpec = (r.items || []).some(i => i.spec);
+  const hasOrigCode = (r.items || []).some(i => i.origCode);
+  const hasShipBatch = (r.items || []).some(i => i.shipBatch);
   const customerCode = r.customerCode || '';
   const rows = (r.items || []).length
     ? r.items.map(i => `<tr>
         <td>${esc(i.productName || '')}</td>
-        <td>${esc(i.batch || '')}</td>
+        ${hasOrigCode ? `<td>${esc(i.origCode || '')}</td>` : ''}
         ${hasSpec ? `<td>${esc(i.spec || '')}</td>` : ''}
+        <td>${esc(i.batch || '')}</td>
+        ${hasShipBatch ? `<td>${esc(i.shipBatch || '')}</td>` : ''}
         <td class="qty">${esc(i.qty || '')}</td>
+        <td>${esc(i.unit || '')}</td>
       </tr>`).join('')
-    : `<tr><td colspan="${hasSpec ? 4 : 3}" class="empty">無品項</td></tr>`;
+    : `<tr><td colspan="${4 + (hasSpec ? 1 : 0) + (hasOrigCode ? 1 : 0) + (hasShipBatch ? 1 : 0)}" class="empty">無品項</td></tr>`;
   w.document.write(`<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -3276,9 +3408,12 @@ function printShipment(id) {
       <thead>
         <tr>
           <th>品名</th>
-          <th>批號</th>
+          ${hasOrigCode ? '<th>貨品原編</th>' : ''}
           ${hasSpec ? '<th>規格</th>' : ''}
+          <th>貨品批號</th>
+          ${hasShipBatch ? '<th>出貨批號</th>' : ''}
           <th class="qty">數量</th>
+          <th>單位</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -3300,7 +3435,7 @@ function editShipRec(id) {
   document.getElementById('ship_customer_code').value = rec.customerCode || '';
   document.getElementById('ship_operator').value = rec.operator || CFG.operator;
   document.getElementById('shipItemsList').innerHTML = '';
-  (rec.items?.length ? rec.items : [{}]).forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.batch || '', i.note || ''));
+  (rec.items?.length ? rec.items : [{}]).forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.unit || '', i.batch || '', i.shipBatch || '', i.note || ''));
   shipEditingId = id;
   clearShipPhoto();
   document.getElementById('shipEditHint').textContent = `正在修改 ${id}`;
