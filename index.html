@@ -156,7 +156,8 @@ button { line-height: 1.2; }
 }
 #module-arrival .header,
 #module-shipment .header,
-#module-trace .header { top: 63px; }
+#module-trace .header,
+#module-settings .header { top: 63px; }
 .tab-bar {
   display: flex; background: var(--surface);
   border-bottom: 1px solid var(--border); padding: 0 14px;
@@ -174,6 +175,7 @@ button { line-height: 1.2; }
 /* Views */
 .view { display: none; padding: 18px 22px 36px; }
 .view.active { display: block; }
+#view-settings { padding: 18px 22px 36px; }
 #offlineNotice {
   background: #f3eee5 !important;
   border: 1px solid #e3d5c4 !important;
@@ -707,11 +709,10 @@ details summary {
     <h1>到貨登記<small>倉庫管理系統</small></h1>
   </div>
   <div class="header-actions">
-    <div class="sync-badge" id="syncBadge" onclick="openTopSettings()">
+    <div class="sync-badge" id="syncBadge" style="cursor:default">
       <div class="sync-dot"></div>
       <span id="syncLabel">未連線</span>
     </div>
-    <button type="button" class="header-settings-btn" onclick="openTopSettings()" title="設定">⚙️</button>
   </div>
 </div>
 
@@ -719,7 +720,6 @@ details summary {
   <button class="tab-btn active" onclick="showTab('scan')" id="tab-scan"><span class="ti">📷</span>登記</button>
   <button class="tab-btn" onclick="showTab('records')" id="tab-records"><span class="ti">📋</span>記錄</button>
   <button class="tab-btn" onclick="showTab('stats')" id="tab-stats"><span class="ti">📊</span>統計</button>
-  <button class="tab-btn" onclick="showTab('settings')" id="tab-settings"><span class="ti">⚙️</span>設定</button>
 </div>
 
 <!-- ══ SCAN ══ -->
@@ -857,113 +857,6 @@ details summary {
   </div>
 </div>
 
-<!-- ══ SETTINGS ══ -->
-<div class="view" id="view-settings">
-
-  <!-- Step 1: Gemini API Key -->
-  <div class="setup-banner" id="s1-banner">
-    <div class="banner-title">
-      <span class="step-pill google" id="s1-pill">Step 1</span>
-      Gemini API Key（AI 辨識用）
-    </div>
-    <div class="banner-body">
-      <p>使用 Google Gemini 辨識到貨單圖片。<strong>免費方案每天 1,500 次</strong>，用 Google 帳號即可申請。Key 只存在您的手機本地。</p>
-      <div class="field-help">Key 由公司提供，請向管理員索取</div>
-      <div class="input-row">
-        <div class="key-input-wrap">
-          <input type="password" class="field-input" id="geminiKeyInput" placeholder="AIza…">
-          <button type="button" class="key-toggle-btn" onclick="toggleGeminiKeyVisibility()" title="顯示 / 隱藏">👁</button>
-        </div>
-        <button class="btn-save google-btn" onclick="saveGemini()">儲存</button>
-        <button class="btn-save clear-btn" onclick="clearGemini()">🗑 清除</button>
-      </div>
-      <div class="status-line" id="s1-status">尚未設定</div>
-      <details>
-        <summary>📋 如何取得免費 Gemini API Key？</summary>
-        <ol class="help-ol">
-          <li>前往 <a href="https://aistudio.google.com/apikey" target="_blank" class="help-link">aistudio.google.com/apikey</a></li>
-          <li>用 Google 帳號登入</li>
-          <li>點「Create API key」</li>
-          <li>複製 Key（AIza 開頭）貼入上方欄位</li>
-        </ol>
-      </details>
-    </div>
-  </div>
-
-  <!-- Step 2: Google Sheets -->
-  <div class="setup-banner" id="s2-banner">
-    <div class="banner-title">
-      <span class="step-pill google" id="s2-pill">Step 2</span>
-      Google Sheets 雲端資料庫
-    </div>
-    <div class="banner-body">
-      <p>雲端資料庫已由管理員統一設定，<strong>你不需要填任何東西</strong>，直接進行 Step 3 即可。</p>
-      <div class="status-line" id="s2-status">檢查中…</div>
-      <details style="margin-top:10px">
-        <summary>🔧 管理員：查看或更新 Apps Script URL</summary>
-        <p style="margin-top:8px;font-size:11px;color:var(--text3)">一般員工不需要填這個。只有管理員在重新部署 Apps Script 後才需更新。</p>
-        <div class="field-group" style="margin-top:8px">
-          <div class="input-row">
-            <input type="text" class="field-input" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
-            <button class="btn-save google-btn" onclick="saveGasUrl()">儲存備援</button>
-          </div>
-        </div>
-        <div style="margin-top:12px">
-        <details>
-        <summary>📋 Apps Script 部署步驟</summary>
-        <ol class="help-ol">
-          <li>開啟 <a href="https://sheets.google.com" target="_blank" class="help-link">Google Sheets</a> 新建試算表，命名「到貨記錄」</li>
-          <li>點上方「擴充功能」→「Apps Script」</li>
-          <li>刪除預設程式碼，貼上下方程式碼</li>
-          <li>按「部署」→「新增部署作業」→ 類型選「網頁應用程式」</li>
-          <li>執行身分選「我」，存取權選「所有人」→「部署」</li>
-          <li>複製 Web App URL 貼入上方欄位</li>
-        </ol>
-        <div class="code-block">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">Apps Script 程式碼</div>
-          <pre id="gasCode"></pre>
-          <button class="copy-btn" onclick="copyGasCode()">複製程式碼</button>
-        </div>
-        </details>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <!-- Step 3: Operator -->
-  <div class="setup-banner">
-    <div class="banner-title">
-      <span class="step-pill done">Step 3</span>
-      登記人員姓名
-    </div>
-    <div class="banner-body">
-      <p>設定後每次登記自動帶入，不需每次輸入。</p>
-      <div class="input-row">
-        <input type="text" class="field-input" id="operatorInput" placeholder="你的姓名">
-        <button class="btn-save" onclick="saveOperator()">儲存</button>
-      </div>
-      <div class="status-line" id="s3-status">尚未設定</div>
-    </div>
-  </div>
-
-  <!-- Step 4: Photo Upload -->
-  <div class="setup-banner">
-    <div class="banner-title">
-      <span class="step-pill done">Step 4</span>
-      照片上傳
-    </div>
-    <div class="banner-body">
-      <p>儲存到貨時自動把照片上傳到管理員的 Google Drive，方便事後對帳。</p>
-      <label class="toggle-row">
-        <input type="checkbox" id="uploadPhotosToggle" onchange="saveUploadPhotos()" checked>
-        <span>啟用照片上傳（推薦）</span>
-      </label>
-      <div class="status-line" id="s4-status">已啟用</div>
-    </div>
-</div>
-
-</div>
-
 </div>
 
 <div id="module-shipment" style="display:none">
@@ -977,7 +870,6 @@ details summary {
         <div class="sync-dot"></div>
         <span id="shipSyncLabel">雲端連線</span>
       </div>
-      <button type="button" class="header-settings-btn" onclick="openTopSettings()" title="設定">⚙️</button>
     </div>
   </div>
 
@@ -1098,6 +990,124 @@ details summary {
   <div class="trace-results" id="inventoryResults">
     <div class="empty-state"><div class="ei">📊</div><p>載入中…</p></div>
   </div>
+</div>
+
+<div id="module-settings" style="display:none">
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-icon">⚙️</div>
+      <h1>設定<small>到貨・出貨共用</small></h1>
+    </div>
+    <div class="header-actions"></div>
+  </div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="view-settings">
+
+  <!-- Step 1: Gemini API Key -->
+  <div class="setup-banner" id="s1-banner">
+    <div class="banner-title">
+      <span class="step-pill google" id="s1-pill">Step 1</span>
+      Gemini API Key（AI 辨識用）
+    </div>
+    <div class="banner-body">
+      <p>使用 Google Gemini 辨識到貨單圖片。<strong>免費方案每天 1,500 次</strong>，用 Google 帳號即可申請。Key 只存在您的手機本地。</p>
+      <div class="field-help">Key 由公司提供，請向管理員索取</div>
+      <div class="input-row">
+        <div class="key-input-wrap">
+          <input type="password" class="field-input" id="geminiKeyInput" placeholder="AIza…">
+          <button type="button" class="key-toggle-btn" onclick="toggleGeminiKeyVisibility()" title="顯示 / 隱藏">👁</button>
+        </div>
+        <button class="btn-save google-btn" onclick="saveGemini()">儲存</button>
+        <button class="btn-save clear-btn" onclick="clearGemini()">🗑 清除</button>
+      </div>
+      <div class="status-line" id="s1-status">尚未設定</div>
+      <details>
+        <summary>📋 如何取得免費 Gemini API Key？</summary>
+        <ol class="help-ol">
+          <li>前往 <a href="https://aistudio.google.com/apikey" target="_blank" class="help-link">aistudio.google.com/apikey</a></li>
+          <li>用 Google 帳號登入</li>
+          <li>點「Create API key」</li>
+          <li>複製 Key（AIza 開頭）貼入上方欄位</li>
+        </ol>
+      </details>
+    </div>
+  </div>
+
+  <!-- Step 2: Google Sheets -->
+  <div class="setup-banner" id="s2-banner">
+    <div class="banner-title">
+      <span class="step-pill google" id="s2-pill">Step 2</span>
+      Google Sheets 雲端資料庫
+    </div>
+    <div class="banner-body">
+      <p>雲端資料庫已由管理員統一設定，<strong>你不需要填任何東西</strong>，直接進行 Step 3 即可。</p>
+      <div class="status-line" id="s2-status">檢查中…</div>
+      <details style="margin-top:10px">
+        <summary>🔧 管理員：查看或更新 Apps Script URL</summary>
+        <p style="margin-top:8px;font-size:11px;color:var(--text3)">一般員工不需要填這個。只有管理員在重新部署 Apps Script 後才需更新。</p>
+        <div class="field-group" style="margin-top:8px">
+          <div class="input-row">
+            <input type="text" class="field-input" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
+            <button class="btn-save google-btn" onclick="saveGasUrl()">儲存備援</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+        <details>
+        <summary>📋 Apps Script 部署步驟</summary>
+        <ol class="help-ol">
+          <li>開啟 <a href="https://sheets.google.com" target="_blank" class="help-link">Google Sheets</a> 新建試算表，命名「到貨記錄」</li>
+          <li>點上方「擴充功能」→「Apps Script」</li>
+          <li>刪除預設程式碼，貼上下方程式碼</li>
+          <li>按「部署」→「新增部署作業」→ 類型選「網頁應用程式」</li>
+          <li>執行身分選「我」，存取權選「所有人」→「部署」</li>
+          <li>複製 Web App URL 貼入上方欄位</li>
+        </ol>
+        <div class="code-block">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">Apps Script 程式碼</div>
+          <pre id="gasCode"></pre>
+          <button class="copy-btn" onclick="copyGasCode()">複製程式碼</button>
+        </div>
+        </details>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Step 3: Operator -->
+  <div class="setup-banner">
+    <div class="banner-title">
+      <span class="step-pill done">Step 3</span>
+      登記人員姓名
+    </div>
+    <div class="banner-body">
+      <p>設定後每次登記自動帶入，不需每次輸入。</p>
+      <div class="input-row">
+        <input type="text" class="field-input" id="operatorInput" placeholder="你的姓名">
+        <button class="btn-save" onclick="saveOperator()">儲存</button>
+      </div>
+      <div class="status-line" id="s3-status">尚未設定</div>
+    </div>
+  </div>
+
+  <!-- Step 4: Photo Upload -->
+  <div class="setup-banner">
+    <div class="banner-title">
+      <span class="step-pill done">Step 4</span>
+      照片上傳
+    </div>
+    <div class="banner-body">
+      <p>儲存到貨時自動把照片上傳到管理員的 Google Drive，方便事後對帳。</p>
+      <label class="toggle-row">
+        <input type="checkbox" id="uploadPhotosToggle" onchange="saveUploadPhotos()" checked>
+        <span>啟用照片上傳（推薦）</span>
+      </label>
+      <div class="status-line" id="s4-status">已啟用</div>
+    </div>
+</div>
+
+</div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1822,15 +1832,9 @@ function updateSyncBadge() {
     badge.className = 'sync-badge offline'; label.textContent = '未設定';
   }
 }
-function openSettingsStep1() {
-  showTab('settings');
-  setTimeout(() => document.getElementById('s1-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-}
 function openTopSettings() {
-  switchModule('arrival');
-  showTab('settings');
-  document.getElementById('moduleBtn-arrival')?.classList.remove('active');
-  document.getElementById('moduleBtn-settings')?.classList.add('active');
+  switchModule('settings');
+  setTimeout(() => document.getElementById('s1-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
 // ── Camera ──
@@ -2618,7 +2622,6 @@ function showTab(name) {
   document.getElementById('tab-'+name).classList.add('active');
   if (name==='records') { renderRecords(); if (CFG.gasUrl) fetchAndRefresh(); }
   if (name==='stats') updateStats();
-  if (name==='settings') setTimeout(() => document.getElementById('s1-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
 // ── Toast ──
@@ -2665,18 +2668,20 @@ let invShipment = [];
 let invLoaded = false;
 
 function switchModule(m) {
-  document.getElementById('moduleBtn-settings')?.classList.remove('active');
   const isShipment = m === 'shipment';
   const isTrace = m === 'trace';
   const isInventory = m === 'inventory';
-  document.getElementById('module-arrival').style.display = (isShipment || isTrace || isInventory) ? 'none' : '';
+  const isSettings = m === 'settings';
+  document.getElementById('module-arrival').style.display = (isShipment || isTrace || isInventory || isSettings) ? 'none' : '';
   document.getElementById('module-shipment').style.display = isShipment ? '' : 'none';
   document.getElementById('module-trace').style.display = isTrace ? '' : 'none';
   document.getElementById('module-inventory').style.display = isInventory ? '' : 'none';
-  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment && !isTrace && !isInventory);
+  document.getElementById('module-settings').style.display = isSettings ? '' : 'none';
+  document.getElementById('moduleBtn-arrival').classList.toggle('active', !isShipment && !isTrace && !isInventory && !isSettings);
   document.getElementById('moduleBtn-shipment').classList.toggle('active', isShipment);
   document.getElementById('moduleBtn-trace').classList.toggle('active', isTrace);
   document.getElementById('moduleBtn-inventory').classList.toggle('active', isInventory);
+  document.getElementById('moduleBtn-settings').classList.toggle('active', isSettings);
   document.body.classList.toggle('mod-shipment', isShipment);
   document.body.classList.toggle('mod-trace', isTrace);
   document.body.classList.toggle('mod-inventory', isInventory);
