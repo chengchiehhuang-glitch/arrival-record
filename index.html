@@ -913,7 +913,25 @@ details summary {
   </div>
 
   <div class="view active" id="view-ship-form">
-    <div class="form-card show shipment-card">
+    <div class="scan-area ship-photo-area" id="shipPhotoArea" onclick="triggerShipCamera()">
+      <img id="shipPreviewImg" alt="出貨照片預覽">
+      <div class="scan-ph" id="shipPhotoPh">
+        <div class="si">📷</div>
+        <p>點擊拍照</p>
+        <small>一張出貨單一筆記錄；可從相簿一次選多張出貨單，存檔後自動接續辨識下一張</small>
+      </div>
+    </div>
+    <input type="file" id="shipFileInput" accept="image/*" capture="environment" onchange="handleShipPhoto(event)" style="display:none">
+    <input type="file" id="shipGalleryInput" accept="image/*" multiple onchange="handleShipImg(event)" style="display:none">
+    <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('shipGalleryInput').click()">🖼️ 從相簿選擇（可多張）</button>
+    <div class="photo-queue" id="shipPhotoQueueBox">
+      <div class="queue-status" id="shipPhotoQueueStatus">待處理 0 張</div>
+      <div class="queue-thumbs" id="shipPhotoQueueThumbs"></div>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="openShipManual()">✏️ 直接手動輸入</button>
+    <button class="btn btn-ghost ship-photo-clear" id="shipPhotoClearBtn" onclick="clearShipPhoto(); closeShipForm();">清除照片</button>
+
+    <div class="form-card shipment-card" id="shipFormCard">
       <div class="form-card-header">
         <span class="gemini-tag">Manual</span>
         <span>出貨資料 — 請填寫後儲存</span>
@@ -938,27 +956,6 @@ details summary {
           <button class="add-item-btn" onclick="addShipItem()">＋ 新增品項</button>
         </div>
         <div class="field-group">
-          <div class="field-label">拍照辨識 / 存證</div>
-          <div class="scan-area ship-photo-area" id="shipPhotoArea" onclick="triggerShipCamera()">
-            <img id="shipPreviewImg" alt="出貨照片預覽">
-            <div class="scan-ph" id="shipPhotoPh">
-              <div class="si">📷</div>
-              <p>點擊拍照</p>
-              <small>一張出貨單一筆記錄；可從相簿一次選多張出貨單，存檔後自動接續辨識下一張</small>
-            </div>
-          </div>
-          <input type="file" id="shipFileInput" accept="image/*" capture="environment" onchange="handleShipPhoto(event)" style="display:none">
-          <input type="file" id="shipGalleryInput" accept="image/*" multiple onchange="handleShipImg(event)" style="display:none">
-          <div class="photo-queue" id="shipPhotoQueueBox">
-            <div class="queue-status" id="shipPhotoQueueStatus">待處理 0 張</div>
-            <div class="queue-thumbs" id="shipPhotoQueueThumbs"></div>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-secondary" onclick="document.getElementById('shipGalleryInput').click()">🖼️ 從相簿選擇</button>
-            <button class="btn btn-ghost ship-photo-clear" id="shipPhotoClearBtn" onclick="clearShipPhoto()">清除照片</button>
-          </div>
-        </div>
-        <div class="field-group">
           <div class="field-label">📎 補充產品照片（可多張，選填）</div>
           <input type="file" id="shipExtraPhotoInput" accept="image/*" multiple onchange="handleShipExtraPhotos(event)" style="display:none">
           <button class="btn btn-secondary" style="width:100%" onclick="document.getElementById('shipExtraPhotoInput').click()">📎 補充產品照片</button>
@@ -968,7 +965,10 @@ details summary {
           </div>
           <div class="ship-existing-extra" id="shipExistingExtraPhotos"></div>
         </div>
-        <button class="btn btn-primary" style="width:100%" id="shipSaveBtn" onclick="saveShipment()">☁️ 儲存出貨記錄</button>
+        <div class="btn-row">
+          <button class="btn btn-ghost" style="flex:0.5" onclick="closeShipForm()">取消</button>
+          <button class="btn btn-primary" id="shipSaveBtn" onclick="saveShipment()">☁️ 儲存出貨記錄</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2998,6 +2998,7 @@ function reindexShipItems() {
 }
 
 function triggerShipCamera() {
+  if (document.getElementById('shipFormCard')?.classList.contains('show')) return;
   document.getElementById('shipFileInput').click();
 }
 
@@ -3016,6 +3017,7 @@ async function handleShipPhoto(e) {
     document.getElementById('shipPhotoPh').style.display = 'none';
     document.getElementById('shipPhotoArea').classList.add('has-img');
     document.getElementById('shipPhotoClearBtn').classList.add('show');
+    document.getElementById('shipFormCard').classList.add('show');
     if (CFG.geminiKey) {
       await analyzeShipImage();
     } else {
@@ -3039,6 +3041,7 @@ async function handleShipImg(e) {
     shipPhotoQueueTotal = shipPhotoQueue.length;
     updateShipPhotoQueueUI();
     loadQueuedShipPhoto(0);
+    document.getElementById('shipFormCard').classList.add('show');
     if (shipPhotoQueue.length) setTimeout(() => analyzeShipImage(), 120);
   } catch (err) {
     showToast('照片讀取失敗：' + err.message, 'err');
@@ -3093,6 +3096,7 @@ function finishCurrentShipPhoto() {
     shipPhotoQueueTotal = 0;
     showToast(`${done} 張全部完成`, 'ok');
     clearShipPhoto(false);
+    document.getElementById('shipFormCard').classList.remove('show');
   }
   return true;
 }
@@ -3216,6 +3220,20 @@ function clearShipPhoto(clearQueue = true) {
   document.getElementById('shipPhotoPh').style.display = 'block';
   document.getElementById('shipPhotoArea').classList.remove('has-img');
   document.getElementById('shipPhotoClearBtn').classList.remove('show');
+}
+
+function openShipManual() {
+  shipPhotoQueue = [];
+  shipPhotoQueueTotal = 0;
+  updateShipPhotoQueueUI();
+  resetShipEditMode();
+  document.getElementById('shipFormCard').classList.add('show');
+  setTimeout(() => document.getElementById('ship_customer')?.focus(), 50);
+}
+
+function closeShipForm() {
+  resetShipEditMode();
+  document.getElementById('shipFormCard').classList.remove('show');
 }
 
 async function handleShipExtraPhotos(e) {
@@ -3365,6 +3383,7 @@ async function saveShipment() {
     const shouldAdvanceQueue = shipPhotoQueue.length > 0;
     resetShipEditMode({ preserveShipQueue: shouldAdvanceQueue });
     if (shouldAdvanceQueue) finishCurrentShipPhoto();
+    else document.getElementById('shipFormCard').classList.remove('show');
     await fetchShipAndRefresh();
     updateCustomerDropdown();
     if (!shouldAdvanceQueue) showToast('已儲存出貨記錄 ✓', 'ok');
@@ -3721,8 +3740,9 @@ function editShipRec(id) {
   document.getElementById('shipEditHint').textContent = `正在修改 ${id}`;
   document.getElementById('shipEditHint').classList.add('show');
   document.getElementById('shipSaveBtn').textContent = '✓ 更新出貨記錄';
+  document.getElementById('shipFormCard').classList.add('show');
   showShipTab('form');
-  setTimeout(() => document.getElementById('module-shipment')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  setTimeout(() => document.getElementById('shipFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
 async function deleteShipRec(id) {
