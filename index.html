@@ -349,6 +349,39 @@ details summary {
   box-shadow: 0 0 0 2px var(--accent-light);
   opacity: 1;
 }
+.extra-photo-thumb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+}
+.extra-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.extra-photo-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--warn);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ship-existing-extra {
+  display: none;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.ship-existing-extra.show { display: block; }
+.ship-existing-extra .rec-photo-btn { margin: 6px 4px 0 0; }
 
 .btn-row { display: flex; gap: 10px; margin-top: 12px; }
 .btn {
@@ -911,15 +944,29 @@ details summary {
             <div class="scan-ph" id="shipPhotoPh">
               <div class="si">📷</div>
               <p>點擊拍照</p>
-              <small>拍一張手寫出貨單，自動辨識帶入品項；也可用下方「🖼️ 從相簿選擇」挑已拍好的照片</small>
+              <small>一張出貨單一筆記錄；可從相簿一次選多張出貨單，存檔後自動接續辨識下一張</small>
             </div>
           </div>
           <input type="file" id="shipFileInput" accept="image/*" capture="environment" onchange="handleShipPhoto(event)" style="display:none">
-          <input type="file" id="shipGalleryInput" accept="image/*" onchange="handleShipPhoto(event)" style="display:none">
+          <input type="file" id="shipGalleryInput" accept="image/*" multiple onchange="handleShipImg(event)" style="display:none">
+          <div class="photo-queue" id="shipPhotoQueueBox">
+            <div class="queue-status" id="shipPhotoQueueStatus">待處理 0 張</div>
+            <div class="queue-thumbs" id="shipPhotoQueueThumbs"></div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-secondary" onclick="document.getElementById('shipGalleryInput').click()">🖼️ 從相簿選擇</button>
             <button class="btn btn-ghost ship-photo-clear" id="shipPhotoClearBtn" onclick="clearShipPhoto()">清除照片</button>
           </div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">📎 補充產品照片（可多張，選填）</div>
+          <input type="file" id="shipExtraPhotoInput" accept="image/*" multiple onchange="handleShipExtraPhotos(event)" style="display:none">
+          <button class="btn btn-secondary" style="width:100%" onclick="document.getElementById('shipExtraPhotoInput').click()">📎 補充產品照片</button>
+          <div class="photo-queue show" id="shipExtraPhotoBox" style="display:none">
+            <div class="queue-status" id="shipExtraPhotoStatus">已選 0 張</div>
+            <div class="queue-thumbs" id="shipExtraPhotoThumbs"></div>
+          </div>
+          <div class="ship-existing-extra" id="shipExistingExtraPhotos"></div>
         </div>
         <button class="btn btn-primary" style="width:100%" id="shipSaveBtn" onclick="saveShipment()">☁️ 儲存出貨記錄</button>
       </div>
@@ -1130,7 +1177,7 @@ const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運
   "追蹤單號2","追蹤單號3","型號","批號",
   "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
 const SHIP_SHEET_NAME = '出貨記錄';
-const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','單位','批號','出貨批號','品項備註','登記人員','照片連結','建立時間','輸入完成'];
+const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','單位','批號','出貨批號','品項備註','登記人員','照片連結','建立時間','標籤完成','出貨單完成','補充照片'];
 const SHIP_PHOTO_ROOT_NAME = '出貨系統照片';
 
 function ensureSchema(sheet) {
@@ -1139,7 +1186,7 @@ function ensureSchema(sheet) {
     sheet.getRange(1,1,1,HEADERS.length)
       .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
     sheet.setFrozenRows(1);
-    applyCompleteCheckboxes(sheet);
+    applyCompleteCheckboxes(sheet, ['輸入完成']);
     return;
   }
   const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
@@ -1150,15 +1197,17 @@ function ensureSchema(sheet) {
         .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
     }
   });
-  applyCompleteCheckboxes(sheet);
+  applyCompleteCheckboxes(sheet, ['輸入完成']);
 }
 
-function applyCompleteCheckboxes(sheet) {
+function applyCompleteCheckboxes(sheet, colNames) {
   const map = colMap(sheet);
-  const completeCol = map["輸入完成"] + 1;
-  if (!completeCol) return;
   const lastRow = sheet.getLastRow();
-  if (lastRow > 1) sheet.getRange(2, completeCol, lastRow - 1, 1).insertCheckboxes();
+  if (lastRow <= 1) return;
+  (colNames || []).forEach(function(name) {
+    const idx = map[name];
+    if (idx !== undefined) sheet.getRange(2, idx + 1, lastRow - 1, 1).insertCheckboxes();
+  });
 }
 
 function colMap(sheet) {
@@ -1209,7 +1258,7 @@ function buildRows(sheet, data) {
 function appendRecordRows(sheet, data) {
   const rows = buildRows(sheet, data);
   rows.forEach(row => sheet.appendRow(row));
-  applyCompleteCheckboxes(sheet);
+  applyCompleteCheckboxes(sheet, ['輸入完成']);
 }
 
 function ensureShipSchema(sheet) {
@@ -1218,10 +1267,15 @@ function ensureShipSchema(sheet) {
     sheet.getRange(1,1,1,SHIP_HEADERS.length)
       .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
     sheet.setFrozenRows(1);
-    applyCompleteCheckboxes(sheet);
+    applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
     return;
   }
-  const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
+  let existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
+  const oldCompleteIdx = existing.indexOf('輸入完成');
+  if (oldCompleteIdx !== -1 && existing.indexOf('標籤完成') === -1) {
+    sheet.getRange(1, oldCompleteIdx + 1).setValue('標籤完成');
+    existing[oldCompleteIdx] = '標籤完成';
+  }
   SHIP_HEADERS.forEach((h) => {
     if (existing.indexOf(h) === -1) {
       const col = sheet.getLastColumn() + 1;
@@ -1229,7 +1283,7 @@ function ensureShipSchema(sheet) {
         .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
     }
   });
-  applyCompleteCheckboxes(sheet);
+  applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
 }
 
 function buildShipRows(sheet, data) {
@@ -1253,7 +1307,9 @@ function buildShipRows(sheet, data) {
     put(row, map, '批號', i.batch || '');
     put(row, map, '出貨批號', i.shipBatch || '');
     put(row, map, '品項備註', i.note || '');
-    put(row, map, '輸入完成', false);
+    put(row, map, '標籤完成', false);
+    put(row, map, '出貨單完成', false);
+    put(row, map, '補充照片', data.extraPhotoUrls || '');
     return row;
   });
 }
@@ -1261,7 +1317,7 @@ function buildShipRows(sheet, data) {
 function appendShipmentRows(sheet, data) {
   const rows = buildShipRows(sheet, data);
   rows.forEach(row => sheet.appendRow(row));
-  applyCompleteCheckboxes(sheet);
+  applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
 }
 
 function handleAddShipment(data) {
@@ -1297,13 +1353,15 @@ function handleUpdateShipment(data) {
     if (oldRowNums.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
 
     const newRows = buildShipRows(sheet, data);
-    const completeCol = map['輸入完成'];
-    if (completeCol !== undefined) {
-      const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
-      newRows.forEach((row, i) => {
-        if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
-      });
-    }
+    ['標籤完成','出貨單完成'].forEach(function(colName) {
+      const completeCol = map[colName];
+      if (completeCol !== undefined) {
+        const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
+        newRows.forEach((row, i) => {
+          if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
+        });
+      }
+    });
 
     if (oldRowNums.length === newRows.length) {
       oldRowNums.forEach((rowNum, i) => {
@@ -1312,7 +1370,7 @@ function handleUpdateShipment(data) {
     } else {
       appendShipmentRows(sheet, data);
       for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
-      applyCompleteCheckboxes(sheet);
+      applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
     }
     logAction('出貨修改', data.id, data.operator, (data.customer || '') + ' / ' + ((data.items && data.items[0] && data.items[0].productName) || ''));
     return jsonOut({ok:true, updated: oldRowNums.length});
@@ -1420,7 +1478,7 @@ function handleUpdateRecord(data) {
     } else {
       appendRecordRows(sheet, data);
       for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
-      applyCompleteCheckboxes(sheet);
+      applyCompleteCheckboxes(sheet, ['輸入完成']);
     }
     logAction("修改", data.id, data.operator, detailFromData(data));
     return jsonOut({ok:true, updated: oldRowNums.length});
@@ -1529,7 +1587,8 @@ function handleShipmentPhotoUpload(data) {
     const safe = function(v) {
       return String(v || '').replace(/[\\/\\\\:*?"<>|]/g, '_').substring(0, 20);
     };
-    const filename = (data.recordId || 'NO-ID') + '_' + safe(data.customer) + '_' + safe(data.batch) + '.' + ext;
+    const suffix = data.kind === 'extra' ? '_extra' + (data.seq || 1) : '';
+    const filename = (data.recordId || 'NO-ID') + '_' + safe(data.customer) + '_' + safe(data.batch) + suffix + '.' + ext;
     const blob = Utilities.newBlob(decoded, data.mimeType || 'image/jpeg', filename);
     const file = sub.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -2659,6 +2718,10 @@ let shipRecords = [];
 let shipEditingId = '';
 let shipPhotoB64 = null;
 let shipPhotoMime = 'image/jpeg';
+let shipPhotoQueue = [];
+let shipPhotoQueueTotal = 0;
+let shipExtraPhotos = [];
+let shipEditingExtraPhotoUrls = '';
 let shipLoaded = false;
 let traceArrival = [];
 let traceShipment = [];
@@ -2774,7 +2837,7 @@ function renderTrace() {
         <span class="trace-pill">數量 ${esc(r.qty || '-')}</span>
         <span class="trace-pill">批號 ${esc(r.batch || '-')}</span>
       </div>
-      ${r.photo ? `<button class="rec-photo-btn" onclick="openPhoto(decodeURIComponent('${encodeURIComponent(r.photo)}'))">📷 點我看照片</button>` : ''}
+      ${r.photo ? `<button class="rec-photo-btn" onclick="openPhoto(decodeURIComponent('${encodeURIComponent(r.photo).replace(/'/g,'%27')}'))">📷 點我看照片</button>` : ''}
     </div>`).join('');
 }
 
@@ -2943,6 +3006,9 @@ async function handleShipPhoto(e) {
   if (!file) return;
   try {
     const photo = await readPhotoFile(file);
+    shipPhotoQueue = [];
+    shipPhotoQueueTotal = 0;
+    updateShipPhotoQueueUI();
     shipPhotoB64 = photo.b64;
     shipPhotoMime = file.type || 'image/jpeg';
     document.getElementById('shipPreviewImg').src = photo.dataUrl;
@@ -2960,6 +3026,75 @@ async function handleShipPhoto(e) {
   } finally {
     e.target.value = '';
   }
+}
+
+async function handleShipImg(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  try {
+    shipPhotoQueue = await Promise.all(files.map(async file => {
+      const photo = await readPhotoFile(file);
+      return { ...photo, mimeType: file.type || 'image/jpeg' };
+    }));
+    shipPhotoQueueTotal = shipPhotoQueue.length;
+    updateShipPhotoQueueUI();
+    loadQueuedShipPhoto(0);
+    if (shipPhotoQueue.length) setTimeout(() => analyzeShipImage(), 120);
+  } catch (err) {
+    showToast('照片讀取失敗：' + err.message, 'err');
+  } finally {
+    e.target.value = '';
+  }
+}
+
+function loadQueuedShipPhoto(index) {
+  if (index > 0 && shipPhotoQueue[index]) {
+    const [selected] = shipPhotoQueue.splice(index, 1);
+    shipPhotoQueue.unshift(selected);
+    index = 0;
+  }
+  const item = shipPhotoQueue[index];
+  if (!item) return;
+  shipPhotoB64 = item.b64;
+  shipPhotoMime = item.mimeType || 'image/jpeg';
+  document.getElementById('shipPreviewImg').src = item.dataUrl;
+  document.getElementById('shipPreviewImg').style.display = 'block';
+  document.getElementById('shipPhotoPh').style.display = 'none';
+  document.getElementById('shipPhotoArea').classList.add('has-img');
+  document.getElementById('shipPhotoClearBtn').classList.add('show');
+  updateShipPhotoQueueUI();
+}
+
+function updateShipPhotoQueueUI() {
+  const box = document.getElementById('shipPhotoQueueBox');
+  const status = document.getElementById('shipPhotoQueueStatus');
+  const thumbs = document.getElementById('shipPhotoQueueThumbs');
+  if (!box || !status || !thumbs) return;
+  if (!shipPhotoQueue.length) {
+    box.classList.remove('show');
+    thumbs.innerHTML = '';
+    status.textContent = '待處理 0 張';
+    return;
+  }
+  box.classList.add('show');
+  status.textContent = `待處理 ${shipPhotoQueue.length} 張`;
+  thumbs.innerHTML = shipPhotoQueue.map((p, i) => `<img class="queue-thumb ${i === 0 ? 'active' : ''}" src="${p.dataUrl}" alt="${esc(p.filename)}" onclick="loadQueuedShipPhoto(${i})">`).join('');
+}
+
+function finishCurrentShipPhoto() {
+  if (!shipPhotoQueue.length) return false;
+  shipPhotoQueue.shift();
+  updateShipPhotoQueueUI();
+  if (shipPhotoQueue.length) {
+    loadQueuedShipPhoto(0);
+    setTimeout(() => analyzeShipImage(), 180);
+  } else {
+    const done = shipPhotoQueueTotal || 1;
+    shipPhotoQueueTotal = 0;
+    showToast(`${done} 張全部完成`, 'ok');
+    clearShipPhoto(false);
+  }
+  return true;
 }
 
 async function analyzeShipImage() {
@@ -3068,7 +3203,12 @@ async function analyzeShipImage() {
   }
 }
 
-function clearShipPhoto() {
+function clearShipPhoto(clearQueue = true) {
+  if (clearQueue) {
+    shipPhotoQueue = [];
+    shipPhotoQueueTotal = 0;
+    updateShipPhotoQueueUI();
+  }
   shipPhotoB64 = null;
   shipPhotoMime = 'image/jpeg';
   document.getElementById('shipPreviewImg').src = '';
@@ -3076,6 +3216,92 @@ function clearShipPhoto() {
   document.getElementById('shipPhotoPh').style.display = 'block';
   document.getElementById('shipPhotoArea').classList.remove('has-img');
   document.getElementById('shipPhotoClearBtn').classList.remove('show');
+}
+
+async function handleShipExtraPhotos(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  try {
+    const photos = await Promise.all(files.map(async file => {
+      const photo = await readPhotoFile(file);
+      return { ...photo, mimeType: file.type || 'image/jpeg' };
+    }));
+    shipExtraPhotos = shipExtraPhotos.concat(photos);
+    updateShipExtraPhotoUI();
+  } catch (err) {
+    showToast('補充照片讀取失敗：' + err.message, 'err');
+  } finally {
+    e.target.value = '';
+  }
+}
+
+function updateShipExtraPhotoUI() {
+  const box = document.getElementById('shipExtraPhotoBox');
+  const status = document.getElementById('shipExtraPhotoStatus');
+  const thumbs = document.getElementById('shipExtraPhotoThumbs');
+  if (!box || !status || !thumbs) return;
+  if (!shipExtraPhotos.length) {
+    box.style.display = 'none';
+    thumbs.innerHTML = '';
+    status.textContent = '已選 0 張';
+    return;
+  }
+  box.style.display = 'block';
+  status.textContent = `已選 ${shipExtraPhotos.length} 張`;
+  thumbs.innerHTML = shipExtraPhotos.map((p, i) => `
+    <div class="extra-photo-thumb">
+      <img class="queue-thumb" src="${p.dataUrl}" alt="${esc(p.filename)}">
+      <button type="button" class="extra-photo-remove" onclick="removeShipExtraPhoto(${i})" aria-label="移除補充照片">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeShipExtraPhoto(index) {
+  shipExtraPhotos.splice(index, 1);
+  updateShipExtraPhotoUI();
+}
+
+function resetShipExtraPhotos() {
+  shipExtraPhotos = [];
+  updateShipExtraPhotoUI();
+}
+
+function splitPhotoUrls(urls) {
+  return String(urls || '').split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+function renderShipExistingExtraPhotos(urls) {
+  const box = document.getElementById('shipExistingExtraPhotos');
+  if (!box) return;
+  const list = splitPhotoUrls(urls);
+  if (!list.length) {
+    box.classList.remove('show');
+    box.innerHTML = '';
+    return;
+  }
+  box.classList.add('show');
+  box.innerHTML = `既有補充照片：${list.map((url, i) => `<button type="button" class="rec-photo-btn" onclick="openPhoto(decodeURIComponent('${encodeURIComponent(url).replace(/'/g,'%27')}'))">📎 產品照${i + 1}</button>`).join('')}`;
+}
+
+async function uploadShipmentPhoto(record, photo, kind = 'main', seq = 0) {
+  const photoRes = await fetch(CFG.gasUrl, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'uploadShipmentPhoto',
+      recordId: record.id,
+      customer: record.customer,
+      batch: record.items?.[0]?.batch || '',
+      dateYMD: record.date,
+      base64: photo.b64,
+      mimeType: photo.mimeType || 'image/jpeg',
+      kind,
+      seq
+    })
+  });
+  const photoJson = await photoRes.json();
+  if (photoJson.ok && photoJson.url) return photoJson.url;
+  console.warn('出貨照片上傳失敗:', photoJson.error || photoJson);
+  return '';
 }
 
 async function saveShipment() {
@@ -3108,6 +3334,7 @@ async function saveShipment() {
     operator: CFG.operator || '未知',
     createdAt: oldRecord?.createdAt || new Date().toISOString(),
     photoUrl: oldRecord?.photoUrl || '',
+    extraPhotoUrls: oldRecord?.extraPhotoUrls || '',
     items
   };
 
@@ -3115,21 +3342,18 @@ async function saveShipment() {
   showToast(isEditing ? '更新出貨記錄中…' : '儲存出貨記錄中…');
   try {
     if (shipPhotoB64) {
-      const photoRes = await fetch(CFG.gasUrl, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'uploadShipmentPhoto',
-          recordId: record.id,
-          customer,
-          batch: items[0]?.batch || '',
-          dateYMD: record.date,
-          base64: shipPhotoB64,
-          mimeType: shipPhotoMime || 'image/jpeg'
-        })
-      });
-      const photoJson = await photoRes.json();
-      if (photoJson.ok && photoJson.url) record.photoUrl = photoJson.url;
-      else console.warn('出貨照片上傳失敗:', photoJson.error || photoJson);
+      const url = await uploadShipmentPhoto(record, { b64: shipPhotoB64, mimeType: shipPhotoMime || 'image/jpeg' }, 'main', 0);
+      if (url) record.photoUrl = url;
+    }
+
+    if (shipExtraPhotos.length) {
+      const newExtraUrls = [];
+      for (let i = 0; i < shipExtraPhotos.length; i++) {
+        const url = await uploadShipmentPhoto(record, shipExtraPhotos[i], 'extra', i + 1);
+        if (url) newExtraUrls.push(url);
+      }
+      const existingExtraUrls = splitPhotoUrls(record.extraPhotoUrls);
+      record.extraPhotoUrls = existingExtraUrls.concat(newExtraUrls).join('\n');
     }
 
     const res = await fetch(CFG.gasUrl, {
@@ -3138,10 +3362,12 @@ async function saveShipment() {
     });
     const d = await res.json();
     if (d.ok !== true) throw new Error(d.error || '儲存失敗');
-    resetShipEditMode();
+    const shouldAdvanceQueue = shipPhotoQueue.length > 0;
+    resetShipEditMode({ preserveShipQueue: shouldAdvanceQueue });
+    if (shouldAdvanceQueue) finishCurrentShipPhoto();
     await fetchShipAndRefresh();
     updateCustomerDropdown();
-    showToast('已儲存出貨記錄 ✓', 'ok');
+    if (!shouldAdvanceQueue) showToast('已儲存出貨記錄 ✓', 'ok');
   } catch (err) {
     showToast('出貨儲存失敗：' + err.message, 'err');
   } finally {
@@ -3170,6 +3396,7 @@ async function fetchShipAndRefresh() {
           customerCode: r['客戶編號'] || '',
           operator: r['登記人員'] || '',
           photoUrl: r['照片連結'] || '',
+          extraPhotoUrls: r['補充照片'] || '',
           createdAt: r['建立時間'] || '',
           items: []
         };
@@ -3280,7 +3507,8 @@ function renderShipRecords() {
             <table class="rec-items-table">
               ${r.items.length ? r.items.map(i => `<tr><td>${shipItemText(i)}</td><td>${esc(i.qty)}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text3)">無品項</td></tr>'}
             </table>
-            ${r.photoUrl ? `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto('${r.photoUrl}')">📷 點我看照片</button>` : ''}
+            ${r.photoUrl ? `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto(decodeURIComponent('${encodeURIComponent(r.photoUrl).replace(/'/g,'%27')}'))">📷 點我看照片</button>` : ''}
+            ${splitPhotoUrls(r.extraPhotoUrls).map((url, i) => `<button class="rec-photo-btn" onclick="event.stopPropagation(); openPhoto(decodeURIComponent('${encodeURIComponent(url).replace(/'/g,'%27')}'))">📎 產品照${i + 1}</button>`).join('')}
             <div class="rec-actions">
               <button class="rec-action-btn" onclick="event.stopPropagation(); printShipment('${r.id}')">🖨 列印出貨單</button>
               <button class="rec-action-btn" onclick="event.stopPropagation(); editShipRec('${r.id}')">✏️ 修改</button>
@@ -3486,7 +3714,10 @@ function editShipRec(id) {
   document.getElementById('shipItemsList').innerHTML = '';
   (rec.items?.length ? rec.items : [{}]).forEach(i => addShipItem(i.productName || '', i.origCode || '', i.spec || '', i.qty || '', i.unit || '', i.batch || '', i.shipBatch || '', i.note || ''));
   shipEditingId = id;
+  shipEditingExtraPhotoUrls = rec.extraPhotoUrls || '';
   clearShipPhoto();
+  resetShipExtraPhotos();
+  renderShipExistingExtraPhotos(shipEditingExtraPhotoUrls);
   document.getElementById('shipEditHint').textContent = `正在修改 ${id}`;
   document.getElementById('shipEditHint').classList.add('show');
   document.getElementById('shipSaveBtn').textContent = '✓ 更新出貨記錄';
@@ -3515,13 +3746,16 @@ async function deleteShipRec(id) {
   }
 }
 
-function resetShipEditMode() {
+function resetShipEditMode(options = {}) {
   document.getElementById('ship_customer').value = '';
   document.getElementById('ship_customer_code').value = '';
   document.getElementById('shipItemsList').innerHTML = '';
   addShipItem();
   shipEditingId = '';
-  clearShipPhoto();
+  shipEditingExtraPhotoUrls = '';
+  clearShipPhoto(!options.preserveShipQueue);
+  resetShipExtraPhotos();
+  renderShipExistingExtraPhotos('');
   document.getElementById('shipEditHint').classList.remove('show');
   document.getElementById('shipSaveBtn').textContent = '☁️ 儲存出貨記錄';
 }
