@@ -1,6 +1,7 @@
 // 2026-05-09 重啟版 v2 — PWA + 21 欄 schema
 // 2026-07-05 v10 — 網頁改「網路優先」，一部署就看到新版（不再卡舊快取）
-const CACHE = 'arrival-v18';
+// 2026-10-26 v19 — 加存取碼（GAS 端驗證）；版本號一升，所有手機開啟即換新版
+const CACHE = 'arrival-v19';
 const ASSETS = [
   './',
   './index.html',

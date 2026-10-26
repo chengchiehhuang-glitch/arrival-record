@@ -1051,6 +1051,27 @@ details summary {
 <!-- ══ SETTINGS ══ -->
 <div id="view-settings">
 
+  <!-- Step 0: 存取碼（每人一把，2026-10-26 起必填） -->
+  <div class="setup-banner" id="s0-banner">
+    <div class="banner-title">
+      <span class="step-pill google" id="s0-pill">必填</span>
+      我的存取碼
+    </div>
+    <div class="banner-body">
+      <p>每個人一組專屬存取碼，<strong>沒有存取碼就無法讀寫到貨／出貨資料</strong>。存取碼只存在這支手機，請勿轉給別人。</p>
+      <div class="field-help">管理員會私訊給你一個設定連結或一串存取碼；整段連結貼進來也可以。<br>⚠️ 請在你<strong>平常開的那個 App</strong> 裡設定：iPhone 的 Safari、「加入主畫面」圖示、LINE 內建瀏覽器各自分開。<br>用主畫面圖示的人：在 LINE 訊息上<strong>長按連結 → 複製</strong> → 打開圖示 App → ⚙️設定 → 貼到這裡 → 按儲存。</div>
+      <div class="input-row">
+        <div class="key-input-wrap">
+          <input type="password" class="field-input" id="accessTokenInput" placeholder="貼上存取碼或設定連結" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button type="button" class="key-toggle-btn" onclick="toggleAccessTokenVisibility()" title="顯示 / 隱藏">👁</button>
+        </div>
+        <button class="btn-save google-btn" onclick="saveAccessToken()">儲存</button>
+        <button class="btn-save clear-btn" onclick="clearAccessToken()">🗑 清除</button>
+      </div>
+      <div class="status-line" id="s0-status">尚未設定</div>
+    </div>
+  </div>
+
   <!-- Step 1: Gemini API Key -->
   <div class="setup-banner" id="s1-banner">
     <div class="banner-title">
@@ -1098,24 +1119,6 @@ details summary {
             <input type="text" class="field-input" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
             <button class="btn-save google-btn" onclick="saveGasUrl()">儲存備援</button>
           </div>
-        </div>
-        <div style="margin-top:12px">
-        <details>
-        <summary>📋 Apps Script 部署步驟</summary>
-        <ol class="help-ol">
-          <li>開啟 <a href="https://sheets.google.com" target="_blank" class="help-link">Google Sheets</a> 新建試算表，命名「到貨記錄」</li>
-          <li>點上方「擴充功能」→「Apps Script」</li>
-          <li>刪除預設程式碼，貼上下方程式碼</li>
-          <li>按「部署」→「新增部署作業」→ 類型選「網頁應用程式」</li>
-          <li>執行身分選「我」，存取權選「所有人」→「部署」</li>
-          <li>複製 Web App URL 貼入上方欄位</li>
-        </ol>
-        <div class="code-block">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">Apps Script 程式碼</div>
-          <pre id="gasCode"></pre>
-          <button class="copy-btn" onclick="copyGasCode()">複製程式碼</button>
-        </div>
-        </details>
         </div>
       </details>
     </div>
@@ -1169,611 +1172,7 @@ details summary {
 </div>
 
 <script>
-// ── GAS Code ──
-const GAS_CODE = `// 2026-05-28 v8 — 批次辨識 + 儲位 + 修改刪除 + LINE
-const SHEET_NAME = "到貨記錄";
-const HEADERS = ["記錄ID","到貨日期","寄件廠商","追蹤單號","託運公司",
-  "來源地","品項","數量","單位","登記人員","備註","建立時間",
-  "追蹤單號2","追蹤單號3","型號","批號",
-  "派送時段","派送指示","處理人","照片連結","曾經到貨","儲位","品項備註","輸入完成"];
-const SHIP_SHEET_NAME = '出貨記錄';
-const SHIP_HEADERS = ['記錄ID','出貨日期','客戶','客戶編號','出貨品名','貨品原編','規格','數量','單位','批號','出貨批號','品項備註','登記人員','照片連結','建立時間','標籤完成','出貨單完成','補充照片'];
-const SHIP_PHOTO_ROOT_NAME = '出貨系統照片';
-
-function ensureSchema(sheet) {
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(HEADERS);
-    sheet.getRange(1,1,1,HEADERS.length)
-      .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
-    sheet.setFrozenRows(1);
-    applyCompleteCheckboxes(sheet, ['輸入完成']);
-    return;
-  }
-  const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
-  HEADERS.forEach((h) => {
-    if (existing.indexOf(h) === -1) {
-      const col = sheet.getLastColumn() + 1;
-      sheet.getRange(1, col).setValue(h)
-        .setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
-    }
-  });
-  applyCompleteCheckboxes(sheet, ['輸入完成']);
-}
-
-function applyCompleteCheckboxes(sheet, colNames) {
-  const map = colMap(sheet);
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return;
-  (colNames || []).forEach(function(name) {
-    const idx = map[name];
-    if (idx !== undefined) sheet.getRange(2, idx + 1, lastRow - 1, 1).insertCheckboxes();
-  });
-}
-
-function colMap(sheet) {
-  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
-  const map = {};
-  headers.forEach((h, i) => map[h] = i);
-  return map;
-}
-
-function put(row, map, key, val) {
-  if (map[key] !== undefined) row[map[key]] = val === undefined || val === null ? "" : val;
-}
-
-function buildRows(sheet, data) {
-  ensureSchema(sheet);
-  const map = colMap(sheet);
-  const items = data.items && data.items.length ? data.items : [{}];
-  return items.map((i) => {
-    const row = Array(sheet.getLastColumn()).fill("");
-    put(row, map, "記錄ID", data.id);
-    put(row, map, "到貨日期", String(data.date || ""));
-    put(row, map, "寄件廠商", data.sender);
-    put(row, map, "追蹤單號", String(data.tracking || ""));
-    put(row, map, "託運公司", data.carrier || "");
-    put(row, map, "來源地", data.origin || "");
-    put(row, map, "品項", i.name || "");
-    put(row, map, "數量", i.qty || "");
-    put(row, map, "單位", i.unit || "");
-    put(row, map, "登記人員", data.operator || "");
-    put(row, map, "備註", data.note || "");
-    put(row, map, "建立時間", data.createdAt || "");
-    put(row, map, "追蹤單號2", String(data.tracking2 || ""));
-    put(row, map, "追蹤單號3", String(data.tracking3 || ""));
-    put(row, map, "型號", i.model || "");
-    put(row, map, "批號", i.batch || "");
-    put(row, map, "派送時段", data.deliveryWindow || "");
-    put(row, map, "派送指示", data.deliveryInstruction || "");
-    put(row, map, "處理人", data.handler || "");
-    put(row, map, "照片連結", data.photoUrl || "");
-    put(row, map, "曾經到貨", i.everArrived || "");
-    put(row, map, "儲位", i.location || "");
-    put(row, map, "品項備註", i.note || "");
-    put(row, map, "輸入完成", false);
-    return row;
-  });
-}
-
-function appendRecordRows(sheet, data) {
-  const rows = buildRows(sheet, data);
-  rows.forEach(row => sheet.appendRow(row));
-  applyCompleteCheckboxes(sheet, ['輸入完成']);
-}
-
-function ensureShipSchema(sheet) {
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(SHIP_HEADERS);
-    sheet.getRange(1,1,1,SHIP_HEADERS.length)
-      .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-    applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
-    return;
-  }
-  let existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0].map(String);
-  const oldCompleteIdx = existing.indexOf('輸入完成');
-  if (oldCompleteIdx !== -1 && existing.indexOf('標籤完成') === -1) {
-    sheet.getRange(1, oldCompleteIdx + 1).setValue('標籤完成');
-    existing[oldCompleteIdx] = '標籤完成';
-  }
-  SHIP_HEADERS.forEach((h) => {
-    if (existing.indexOf(h) === -1) {
-      const col = sheet.getLastColumn() + 1;
-      sheet.getRange(1, col).setValue(h)
-        .setFontWeight('bold').setBackground('#6b8e7f').setFontColor('#ffffff');
-    }
-  });
-  applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
-}
-
-function buildShipRows(sheet, data) {
-  ensureShipSchema(sheet);
-  const map = colMap(sheet);
-  const items = data.items && data.items.length ? data.items : [{}];
-  return items.map((i) => {
-    const row = Array(sheet.getLastColumn()).fill('');
-    put(row, map, '記錄ID', data.id);
-    put(row, map, '出貨日期', String(data.date || ''));
-    put(row, map, '客戶', data.customer || '');
-    put(row, map, '客戶編號', data.customerCode || '');
-    put(row, map, '登記人員', data.operator || '');
-    put(row, map, '照片連結', data.photoUrl || '');
-    put(row, map, '建立時間', data.createdAt || '');
-    put(row, map, '出貨品名', i.productName || '');
-    put(row, map, '貨品原編', i.origCode || '');
-    put(row, map, '規格', i.spec || '');
-    put(row, map, '數量', i.qty || '');
-    put(row, map, '單位', i.unit || '');
-    put(row, map, '批號', i.batch || '');
-    put(row, map, '出貨批號', i.shipBatch || '');
-    put(row, map, '品項備註', i.note || '');
-    put(row, map, '標籤完成', false);
-    put(row, map, '出貨單完成', false);
-    put(row, map, '補充照片', data.extraPhotoUrls || '');
-    return row;
-  });
-}
-
-function appendShipmentRows(sheet, data) {
-  const rows = buildShipRows(sheet, data);
-  rows.forEach(row => sheet.appendRow(row));
-  applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
-}
-
-function handleAddShipment(data) {
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(15000); } catch(e) {
-    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
-  }
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHIP_SHEET_NAME);
-    if (!sheet) sheet = ss.insertSheet(SHIP_SHEET_NAME);
-    appendShipmentRows(sheet, data);
-    return jsonOut({ok:true});
-  } catch(err) {
-    return jsonOut({ok:false, error: err.message});
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function handleUpdateShipment(data) {
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(15000); } catch(e) {
-    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
-  }
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
-    if (!sheet) return jsonOut({ok:false, error:'找不到工作表'});
-    ensureShipSchema(sheet);
-    const map = colMap(sheet);
-    const oldRowNums = findRowsByRecordId(sheet, data.id, map);
-    if (oldRowNums.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
-
-    const newRows = buildShipRows(sheet, data);
-    ['標籤完成','出貨單完成'].forEach(function(colName) {
-      const completeCol = map[colName];
-      if (completeCol !== undefined) {
-        const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
-        newRows.forEach((row, i) => {
-          if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
-        });
-      }
-    });
-
-    if (oldRowNums.length === newRows.length) {
-      oldRowNums.forEach((rowNum, i) => {
-        sheet.getRange(rowNum, 1, 1, newRows[i].length).setValues([newRows[i]]);
-      });
-    } else {
-      appendShipmentRows(sheet, data);
-      for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
-      applyCompleteCheckboxes(sheet, ['標籤完成','出貨單完成']);
-    }
-    logAction('出貨修改', data.id, data.operator, (data.customer || '') + ' / ' + ((data.items && data.items[0] && data.items[0].productName) || ''));
-    return jsonOut({ok:true, updated: oldRowNums.length});
-  } catch(err) {
-    return jsonOut({ok:false, error: err.message});
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function handleDeleteShipment(data) {
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(15000); } catch(e) {
-    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試'});
-  }
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
-    if (!sheet) return jsonOut({ok:true, deleted:0});
-    ensureShipSchema(sheet);
-    const map = colMap(sheet);
-    const rows = findRowsByRecordId(sheet, data.id, map);
-    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要刪除的記錄 ' + data.id});
-    const first = sheet.getRange(rows[0], 1, 1, sheet.getLastColumn()).getValues()[0];
-    const detail = (first[map['客戶']] || '') + ' / ' + (first[map['出貨品名']] || '');
-    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
-    logAction('出貨刪除', data.id, data.operator, data.detail || detail);
-    return jsonOut({ok:true, deleted: rows.length});
-  } catch(err) {
-    return jsonOut({ok:false, error: err.message});
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function detailFromData(data) {
-  const item = (data.items && data.items[0]) || {};
-  return (data.sender || "") + " / " + (item.model || item.name || "");
-}
-
-function detailFromRows(sheet, rowNums, map) {
-  if (!rowNums.length) return "";
-  const r = sheet.getRange(rowNums[0], 1, 1, sheet.getLastColumn()).getValues()[0];
-  return (r[map["寄件廠商"]] || "") + " / " + (r[map["型號"]] || r[map["品項"]] || "");
-}
-
-function findRowsByRecordId(sheet, recordId, map) {
-  const idCol = map["記錄ID"];
-  if (idCol === undefined || !recordId) return [];
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-  const values = sheet.getRange(2, idCol + 1, lastRow - 1, 1).getValues();
-  const rows = [];
-  values.forEach((r, i) => {
-    if (String(r[0]) === String(recordId)) rows.push(i + 2);
-  });
-  return rows;
-}
-
-function jsonOut(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function logAction(action, recordId, operator, detail) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let log = ss.getSheetByName("操作記錄");
-  if (!log) {
-    log = ss.insertSheet("操作記錄");
-    log.appendRow(["時間","動作","記錄ID","操作人","詳情"]);
-    log.getRange(1,1,1,5).setFontWeight("bold").setBackground("#6b8e7f").setFontColor("#ffffff");
-    log.setFrozenRows(1);
-  }
-  log.appendRow([Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"), action, recordId, operator || "", detail || ""]);
-}
-
-function handleUpdateRecord(data) {
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(15000); } catch(e) {
-    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
-  }
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) return jsonOut({ok:false, error:'找不到工作表'});
-    ensureSchema(sheet);
-    const map = colMap(sheet);
-    const oldRowNums = findRowsByRecordId(sheet, data.id, map);
-    if (oldRowNums.length === 0) return jsonOut({ok:false, error:'找不到要修改的記錄 ' + data.id});
-
-    const newRows = buildRows(sheet, data);
-    const completeCol = map["輸入完成"];
-    if (completeCol !== undefined) {
-      const oldCompleteValues = oldRowNums.map(rowNum => sheet.getRange(rowNum, completeCol + 1).getValue());
-      newRows.forEach((row, i) => {
-        if (i < oldCompleteValues.length) row[completeCol] = oldCompleteValues[i];
-      });
-    }
-
-    if (oldRowNums.length === newRows.length) {
-      oldRowNums.forEach((rowNum, i) => {
-        sheet.getRange(rowNum, 1, 1, newRows[i].length).setValues([newRows[i]]);
-      });
-    } else {
-      appendRecordRows(sheet, data);
-      for (let i = oldRowNums.length - 1; i >= 0; i--) sheet.deleteRow(oldRowNums[i]);
-      applyCompleteCheckboxes(sheet, ['輸入完成']);
-    }
-    logAction("修改", data.id, data.operator, detailFromData(data));
-    return jsonOut({ok:true, updated: oldRowNums.length});
-  } catch(err) {
-    return jsonOut({ok:false, error: err.message});
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function handleDeleteRecord(data) {
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(15000); } catch(e) {
-    return jsonOut({ok:false, error:'系統忙碌中，請稍後再試'});
-  }
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) return jsonOut({ok:true, deleted:0});
-    ensureSchema(sheet);
-    const map = colMap(sheet);
-    const rows = findRowsByRecordId(sheet, data.id, map);
-    if (rows.length === 0) return jsonOut({ok:false, error:'找不到要刪除的記錄 ' + data.id});
-    const detail = detailFromRows(sheet, rows, map);
-    for (let i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
-    logAction("刪除", data.id, data.operator, data.detail || detail);
-    return jsonOut({ok:true, deleted: rows.length});
-  } catch(err) {
-    return jsonOut({ok:false, error: err.message});
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ── 照片資料夾管理 ──
-const PHOTO_ROOT_NAME = "到貨系統照片";
-
-function ensurePhotoFolder() {
-  const props = PropertiesService.getScriptProperties();
-  let folderId = props.getProperty('photo_folder_id');
-  if (folderId) {
-    try { return DriveApp.getFolderById(folderId); }
-    catch(e) { /* 被刪了 */ }
-  }
-  const folder = DriveApp.createFolder(PHOTO_ROOT_NAME);
-  props.setProperty('photo_folder_id', folder.getId());
-  return folder;
-}
-
-function ensureDateSubfolder(parentFolder, dateYMD) {
-  const folders = parentFolder.getFoldersByName(dateYMD);
-  if (folders.hasNext()) return folders.next();
-  return parentFolder.createFolder(dateYMD);
-}
-
-// ── 照片上傳 ──
-function handlePhotoUpload(data) {
-  try {
-    const root = ensurePhotoFolder();
-    const sub = ensureDateSubfolder(root, data.dateYMD || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
-    let raw = data.base64;
-    if (raw.indexOf(',') !== -1) raw = raw.substring(raw.indexOf(',') + 1);
-    const decoded = Utilities.base64Decode(raw);
-    const ext = (data.mimeType || 'image/jpeg').split('/')[1].replace('jpeg', 'jpg');
-    const safeSender = (data.sender || 'unknown').replace(/[\\/\\\\:*?"<>|]/g, '_').substring(0, 30);
-    const filename = (data.recordId || 'NO-ID') + '_' + safeSender + '.' + ext;
-    const blob = Utilities.newBlob(decoded, data.mimeType || 'image/jpeg', filename);
-    const file = sub.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        ok: true,
-        fileId: file.getId(),
-        url: 'https://drive.google.com/file/d/' + file.getId() + '/view',
-        thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400',
-        folderUrl: sub.getUrl()
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function ensureShipPhotoFolder() {
-  const props = PropertiesService.getScriptProperties();
-  let folderId = props.getProperty('ship_photo_folder_id');
-  if (folderId) {
-    try { return DriveApp.getFolderById(folderId); }
-    catch(e) { /* 被刪了 */ }
-  }
-  const folder = DriveApp.createFolder(SHIP_PHOTO_ROOT_NAME);
-  props.setProperty('ship_photo_folder_id', folder.getId());
-  return folder;
-}
-
-function handleShipmentPhotoUpload(data) {
-  try {
-    const root = ensureShipPhotoFolder();
-    const sub = ensureDateSubfolder(root, data.dateYMD || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'));
-    let raw = data.base64;
-    if (raw.indexOf(',') !== -1) raw = raw.substring(raw.indexOf(',') + 1);
-    const decoded = Utilities.base64Decode(raw);
-    const ext = (data.mimeType || 'image/jpeg').split('/')[1].replace('jpeg', 'jpg');
-    const safe = function(v) {
-      return String(v || '').replace(/[\\/\\\\:*?"<>|]/g, '_').substring(0, 20);
-    };
-    const suffix = data.kind === 'extra' ? '_extra' + (data.seq || 1) : '';
-    const filename = (data.recordId || 'NO-ID') + '_' + safe(data.customer) + '_' + safe(data.batch) + suffix + '.' + ext;
-    const blob = Utilities.newBlob(decoded, data.mimeType || 'image/jpeg', filename);
-    const file = sub.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return jsonOut({
-      ok: true,
-      url: 'https://drive.google.com/file/d/' + file.getId() + '/view',
-      thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400',
-      fileId: file.getId(),
-      folderUrl: sub.getUrl()
-    });
-  } catch (err) {
-    return jsonOut({ ok: false, error: err.message });
-  }
-}
-
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    if (data.action === 'uploadPhoto') {
-      return handlePhotoUpload(data);
-    }
-    if (data.action === 'uploadShipmentPhoto') {
-      return handleShipmentPhotoUpload(data);
-    }
-    if (data.action === 'updateRecord') {
-      return handleUpdateRecord(data);
-    }
-    if (data.action === 'deleteRecord') {
-      return handleDeleteRecord(data);
-    }
-    if (data.action === 'addShipment') {
-      return handleAddShipment(data);
-    }
-    if (data.action === 'updateShipment') {
-      return handleUpdateShipment(data);
-    }
-    if (data.action === 'deleteShipment') {
-      return handleDeleteShipment(data);
-    }
-    const lock = LockService.getScriptLock();
-    try { lock.waitLock(15000); } catch(e) {
-      return jsonOut({ok:false, error:'系統忙碌中，請稍後再試（無法取得鎖）'});
-    }
-    try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let sheet = ss.getSheetByName(SHEET_NAME);
-      if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-      appendRecordRows(sheet, data);
-      pushLineNotification(data);
-      return jsonOut({ok: true});
-    } catch(err) {
-      return jsonOut({ok:false, error: err.message});
-    } finally {
-      lock.releaseLock();
-    }
-  } catch(err) {
-    return jsonOut({ok: false, error: err.message});
-  }
-}
-
-function pushLineNotification(data) {
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const token = props.getProperty('line_token');
-    const groupId = props.getProperty('line_group_id');
-    if (!token || !groupId) return;
-    const items = (data.items && data.items.length) ? data.items : [];
-    let itemLines = '';
-    items.forEach(function(it, i) {
-      const model = it.model || it.name || '';
-      const qty = it.qty || '';
-      const unit = it.unit || '';
-      const ever = it.everArrived === 'Y' ? '（✓ 曾到貨）' : (it.batch ? '（✗ 首次）' : '');
-      itemLines += '　' + (i + 1) + '. ' + model + '  ×' + qty + unit + '\\n';
-      if (it.batch) itemLines += '　　批號 ' + it.batch + ' ' + ever + '\\n';
-      if (it.location) itemLines += '　　儲位 ' + it.location + '\\n';
-    });
-    if (!itemLines) itemLines = '　（未填品項）\\n';
-    const msg = '🚚 新到貨登記\\n\\n' +
-      '廠商： ' + (data.sender || '') + '\\n\\n' +
-      '品項：\\n' + itemLines + '\\n' +
-      '登記： ' + (data.operator || '') + '\\n' +
-      '時間： ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-    UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'post', contentType: 'application/json',
-      headers: { 'Authorization': 'Bearer ' + token },
-      payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: msg }] }),
-      muteHttpExceptions: true
-    });
-  } catch(err) { Logger.log('LINE push error: ' + err.message); }
-}
-
-// 診斷端點(token 本身不會回傳)
-//   /exec?diag=lineCheck         → 靜默檢查 token/配額/bot info(3 個 GET API,不吃配額、不跳訊息)
-//   /exec?diag=lineCheck&push=1  → 加打一條 push 進群組(吃 1 配額),用於驗證 bot 還在群組裡
-function _runLineDiag(pushOpt) {
-  const out = { time: new Date().toISOString() };
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const token = props.getProperty('line_token') || '';
-    const groupId = props.getProperty('line_group_id') || '';
-    out.tokenPresent = !!token;
-    out.tokenLength = token.length;
-    out.tokenPrefix4 = token.slice(0, 4);
-    out.groupIdPresent = !!groupId;
-    out.groupId = groupId;
-    if (!token) {
-      out.diagnosis = 'token 不在';
-      return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
-    }
-    const headers = { 'Authorization': 'Bearer ' + token };
-    const r1 = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', { method: 'get', headers: headers, muteHttpExceptions: true });
-    out.botInfo = { code: r1.getResponseCode(), body: r1.getContentText().slice(0, 300) };
-    const r2 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/quota', { method: 'get', headers: headers, muteHttpExceptions: true });
-    out.quota = { code: r2.getResponseCode(), body: r2.getContentText().slice(0, 200) };
-    const r3 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/quota/consumption', { method: 'get', headers: headers, muteHttpExceptions: true });
-    out.consumption = { code: r3.getResponseCode(), body: r3.getContentText().slice(0, 200) };
-    if (pushOpt && groupId) {
-      const r4 = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
-        method: 'post', contentType: 'application/json',
-        headers: headers,
-        payload: JSON.stringify({ to: groupId, messages: [{ type: 'text', text: '🔧 [手動診斷] 推播測試 ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss') + ' — 收到代表 bot 在群組裡' }] }),
-        muteHttpExceptions: true
-      });
-      out.pushTest = { code: r4.getResponseCode(), body: r4.getContentText().slice(0, 500) };
-    } else {
-      out.pushTest = 'skipped (加 &push=1 才會打)';
-    }
-    if (r1.getResponseCode() === 401) out.diagnosis = 'token 失效 (401)';
-    else if (out.pushTest && out.pushTest.code === 429) out.diagnosis = '月配額用完 (429)';
-    else if (out.pushTest && out.pushTest.code === 200) out.diagnosis = '所有 API 呼叫 OK (含 push 測試)';
-    else if (typeof out.pushTest === 'string') out.diagnosis = 'token/配額/bot info 都 OK (未測 push,加 &push=1 可驗證群組推播)';
-    else out.diagnosis = '其他狀況,看 code';
-  } catch(err) {
-    out.error = err.message;
-  }
-  return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function doGet(e) {
-  if (e && e.parameter && e.parameter.diag === 'lineCheck') return _runLineDiag(e.parameter.push === '1');
-  if (e && e.parameter && e.parameter.module === 'shipment') {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHIP_SHEET_NAME);
-    if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const tz = Session.getScriptTimeZone();
-    const rows = data.slice(1).map(function(r) {
-      const obj = {};
-      headers.forEach(function(h, i) {
-        let v = r[i];
-        if (v instanceof Date) {
-          v = (h === '出貨日期') ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : Utilities.formatDate(v, tz, 'yyyy-MM-dd HH:mm:ss');
-        }
-        obj[h] = v;
-      });
-      return obj;
-    });
-    return ContentService.createTextOutput(JSON.stringify({rows: rows})).setMimeType(ContentService.MimeType.JSON);
-  }
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) return ContentService.createTextOutput(JSON.stringify({rows:[]})).setMimeType(ContentService.MimeType.JSON);
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const tz = Session.getScriptTimeZone();
-  const rows = data.slice(1).map(function(r) {
-    const obj = {};
-    headers.forEach(function(h, i) {
-      let v = r[i];
-      if (v instanceof Date) {
-        v = (h === '到貨日期') ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : Utilities.formatDate(v, tz, 'yyyy-MM-dd HH:mm:ss');
-      }
-      obj[h] = v;
-    });
-    return obj;
-  });
-  return ContentService.createTextOutput(JSON.stringify({rows: rows})).setMimeType(ContentService.MimeType.JSON);
-}`;
-
-document.getElementById('gasCode').textContent = GAS_CODE;
-function copyGasCode() {
-  navigator.clipboard.writeText(GAS_CODE).then(() => showToast('程式碼已複製 ✓', 'ok'));
-}
+// 後端（Apps Script）原始碼不放公開頁面；正本在本機專案 gas/ 資料夾（clasp），部署見 gas/README.md
 
 // ── Storage helpers ──
 function ls(k, v) {
@@ -1790,8 +1189,59 @@ const CFG = {
   get geminiKey() { return ls('geminiKey'); },
   get gasUrl()    { return SHARED_GAS_URL || ls('gasUrl'); },  // 優先用寫死的，備援用本機
   get operator()  { return ls('operatorName'); },
-  get uploadPhotos() { return ls('uploadPhotos') || 'true'; }
+  get uploadPhotos() { return ls('uploadPhotos') || 'true'; },
+  get accessToken()  { return ls('accessToken'); }
 };
+
+// ── 存取碼（2026-10-26 資安修補）──
+// 每人一把，存這支手機的 localStorage；GAS 端比對指令碼屬性 access_tokens_json。
+// GAS Web App 讀不到自訂 header，所以 GET 放 ?token=、POST 放 body.token。
+const ACCESS_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;  // 發放的存取碼固定 43 字元；少貼一段會被擋下
+const AUTH_ERR_MSG = '存取碼無效或未設定，請到「⚙️設定」輸入你的存取碼';
+// 接受「純存取碼」或「設定連結 …#token=xxx」
+function parseAccessTokenInput(v) {
+  v = String(v || '').trim();
+  const m = v.match(/[#&]token=([A-Za-z0-9_-]+)(?:&|$)/);  // 值後面只能接 & 或結尾，夾雜其他字元一律不收
+  if (m) v = m[1];
+  return ACCESS_TOKEN_RE.test(v) ? v : '';
+}
+let accessTokenRejected = false;  // 後端回 unauthorized 時設 true，設定頁顯示「無效」
+// 設定連結：網址 #token=xxx → 存起來，並立刻把 hash 從網址列與瀏覽紀錄抹掉
+// 回傳 'ok'／'bad'／''（網址沒有設定連結）
+function importAccessTokenFromHash() {
+  if (!/token/i.test(location.hash)) return '';  // 只要疑似設定連結，不論格式對錯都清掉 hash
+  const t = parseAccessTokenInput(location.hash);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (t) {
+    // 已有另一把存取碼時先確認，避免被別人傳來的連結靜默蓋掉
+    if (CFG.accessToken && CFG.accessToken !== t && !confirm('這支手機已經設定過存取碼，要換成連結裡的新存取碼嗎？')) return '';
+    ls('accessToken', t); setTimeout(() => showToast('存取碼已設定 ✓', 'ok'), 300); return 'ok';
+  }
+  setTimeout(() => showToast('設定連結不完整，請向管理員重新索取（或直接貼存取碼）', 'err'), 300);
+  return 'bad';
+}
+function gasGetUrl(query = '') {
+  const parts = [];
+  if (query) parts.push(query);
+  parts.push('token=' + encodeURIComponent(CFG.accessToken));
+  return CFG.gasUrl + '?' + parts.join('&');
+}
+function gasBody(obj) {
+  return JSON.stringify({ ...obj, token: CFG.accessToken });
+}
+// 取代 res.json()：被 GAS 擋下時丟出看得懂的錯誤
+async function gasJson(res) {
+  const d = await res.json();
+  if (d && d.error === 'unauthorized') {
+    accessTokenRejected = true;
+    try { updateSettingsUI(); } catch {}
+    const err = new Error(AUTH_ERR_MSG);
+    err.unauthorized = true;
+    throw err;
+  }
+  if (accessTokenRejected) { accessTokenRejected = false; try { updateSettingsUI(); } catch {} }
+  return d;
+}
 
 let records = [];
 let offlineQueue = [];
@@ -1802,6 +1252,28 @@ let editingRecordId = '';
 let allBatches = new Set();
 
 // ── Settings ──
+async function saveAccessToken() {
+  const input = document.getElementById('accessTokenInput');
+  const t = parseAccessTokenInput(input.value);
+  if (!t) { showToast('存取碼格式不正確，請整段複製管理員給的內容再貼一次', 'err'); return; }
+  ls('accessToken', t);
+  accessTokenRejected = false;
+  input.value = '';
+  updateSettingsUI();
+  showToast('存取碼已儲存 ✓', 'ok');
+  await flushQueue();   // 先補送再讀取，避免讀到補送前的清單、畫面暫時少一筆
+  fetchAndRefresh();
+}
+function clearAccessToken() {
+  localStorage.removeItem('accessToken');
+  document.getElementById('accessTokenInput').value = '';
+  updateSettingsUI();
+  showToast('存取碼已清除');
+}
+function toggleAccessTokenVisibility() {
+  const input = document.getElementById('accessTokenInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
 function saveGemini() {
   const k = document.getElementById('geminiKeyInput').value.trim();
   if (!k.startsWith('AIza')) { showToast('格式不正確（需以 AIza 開頭）', 'err'); return; }
@@ -1846,7 +1318,11 @@ function saveUploadPhotos() {
 }
 
 function updateSettingsUI() {
-  const gk = CFG.geminiKey, gu = CFG.gasUrl, op = CFG.operator;
+  const gk = CFG.geminiKey, gu = CFG.gasUrl, op = CFG.operator, at = CFG.accessToken;
+  const atOk = at && !accessTokenRejected;
+  setStatus('s0-status', atOk, !at ? '⚠️ 尚未設定（無法讀寫資料）'
+    : accessTokenRejected ? `✗ 伺服器拒絕這組存取碼（末四碼 ${at.slice(-4)}），請向管理員確認` : `✓ 已設定（末四碼 ${at.slice(-4)}）`);
+  if (atOk) markDone('s0-pill'); else resetStep('s0-pill', '必填', 'google');
   setStatus('s1-status', gk, gk ? `✓ 已儲存：${maskKey(gk)}` : '尚未設定');
   // Step 2: GAS URL 由程式碼統一管理
   if (SHARED_GAS_URL) {
@@ -1893,7 +1369,7 @@ function updateSyncBadge() {
 }
 function openTopSettings() {
   switchModule('settings');
-  setTimeout(() => document.getElementById('s1-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  setTimeout(() => document.getElementById('s0-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
 // ── Camera ──
@@ -2256,7 +1732,7 @@ function reindexItems() {
     el.textContent = `品項 ${i + 1}`;
   });
 }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── 照片彈窗（點「點我看照片」才載入；Drive 縮圖直連常被擋，改用 lh3 直連 + 多層備援）──
 function openPhoto(photoUrl) {
@@ -2380,6 +1856,7 @@ async function saveRecord() {
   if (photoB64 && CFG.uploadPhotos !== 'false') {
     showToast('上傳照片中…');
     const photoResult = await uploadPhoto(record.id, record.sender, record.date, photoB64);
+    if (photoResult.unauthorized) { keepFormAfterAuthFail(); return; }
     if (photoResult.ok) {
       record.photoUrl = photoResult.url;
       record.thumbnailUrl = photoResult.thumbnailUrl;
@@ -2390,6 +1867,7 @@ async function saveRecord() {
     }
   }
   const sheetResult = await pushToSheets(record, isEditing ? 'updateRecord' : '');
+  if (sheetResult.unauthorized) { keepFormAfterAuthFail(); return; }
   const ok = sheetResult.ok;
   document.getElementById('saveBtn').disabled = false;
 
@@ -2423,36 +1901,52 @@ async function saveRecord() {
   }
 }
 
+// 存取碼無效：不要當成「離線」暫存（補不出去、照片也會被清掉），保留表單與照片，請使用者先去設定
+function keepFormAfterAuthFail() {
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('formCard').classList.add('show');
+  showToast('沒有儲存：' + AUTH_ERR_MSG, 'err');
+}
+
 async function uploadPhoto(recordId, sender, dateYMD, base64) {
   if (!CFG.gasUrl) return { ok: false, error: 'no GAS URL' };
   try {
     const res = await fetch(CFG.gasUrl, {
       method: 'POST',
-      body: JSON.stringify({
+      body: gasBody({
         action: 'uploadPhoto',
         base64,
         mimeType: 'image/jpeg',
         recordId, sender, dateYMD
       })
     });
-    return await res.json();
-  } catch (e) { return { ok: false, error: e.message }; }
+    return await gasJson(res);
+  } catch (e) { return { ok: false, error: e.message, unauthorized: !!e.unauthorized }; }
 }
 
 async function pushToSheets(record, action = '') {
   if (!CFG.gasUrl) return { ok: false, error: '未設定 Apps Script URL' };
   try {
     const payload = action ? { ...record, action } : record;
-    const res = await fetch(CFG.gasUrl, { method: 'POST', body: JSON.stringify(payload) });
-    const d = await res.json();
+    const res = await fetch(CFG.gasUrl, { method: 'POST', body: gasBody(payload) });
+    const d = await gasJson(res);
     return { ok: d.ok === true, error: d.error || '' };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, unauthorized: !!e.unauthorized };
   }
 }
 
+let flushing = false;    // 防止兩個 flushQueue 同時跑而重複送出同一筆（會重複推 LINE）
+let flushAgain = false;  // 跑的途中又被呼叫（例如剛換了存取碼）→ 跑完再補一輪
 async function flushQueue() {
   if (!offlineQueue.length || !CFG.gasUrl) return;
+  if (flushing) { flushAgain = true; return; }
+  flushing = true;
+  try {
+    do { flushAgain = false; await flushQueueOnce(); } while (flushAgain && offlineQueue.length);
+  } finally { flushing = false; }
+}
+async function flushQueueOnce() {
   document.getElementById('syncBadge').className = 'sync-badge syncing';
   document.getElementById('syncLabel').textContent = '同步中…';
   const failed = [];
@@ -2473,8 +1967,8 @@ async function fetchAndRefresh() {
   if (!CFG.gasUrl) { showToast('請先設定 Apps Script URL', 'err'); return; }
   showToast('載入中…');
   try {
-    const res = await fetch(CFG.gasUrl);
-    const d = await res.json();
+    const res = await fetch(gasGetUrl());
+    const d = await gasJson(res);
     if (!d.rows) throw new Error('格式錯誤');
     const grouped = {};
     const sheetBatches = new Set();
@@ -2627,14 +2121,14 @@ async function deleteFromSheets(rec, operator) {
     const firstItem = rec.items?.[0] || {};
     const res = await fetch(CFG.gasUrl, {
       method: 'POST',
-      body: JSON.stringify({
+      body: gasBody({
         action: 'deleteRecord',
         id: rec.id,
         operator,
         detail: `${rec.sender || ''} / ${firstItem.model || firstItem.name || ''}`
       })
     });
-    const d = await res.json();
+    const d = await gasJson(res);
     return { ok: d.ok === true, error: d.error || '' };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -2765,12 +2259,12 @@ async function fetchTraceData() {
     document.getElementById('traceSyncBadge').className = 'sync-badge syncing';
     document.getElementById('traceSyncLabel').textContent = '同步中…';
     const [arrivalRes, shipmentRes] = await Promise.all([
-      fetch(CFG.gasUrl),
-      fetch(CFG.gasUrl + '?module=shipment')
+      fetch(gasGetUrl()),
+      fetch(gasGetUrl('module=shipment'))
     ]);
     const [arrivalJson, shipmentJson] = await Promise.all([
-      arrivalRes.json(),
-      shipmentRes.json()
+      gasJson(arrivalRes),
+      gasJson(shipmentRes)
     ]);
     traceArrival = Array.isArray(arrivalJson.rows) ? arrivalJson.rows : [];
     traceShipment = Array.isArray(shipmentJson.rows) ? shipmentJson.rows : [];
@@ -2853,10 +2347,10 @@ async function fetchInventoryData() {
     document.getElementById('invSyncBadge').className = 'sync-badge syncing';
     document.getElementById('invSyncLabel').textContent = '同步中…';
     const [arrivalRes, shipmentRes] = await Promise.all([
-      fetch(CFG.gasUrl),
-      fetch(CFG.gasUrl + '?module=shipment')
+      fetch(gasGetUrl()),
+      fetch(gasGetUrl('module=shipment'))
     ]);
-    const [arrivalJson, shipmentJson] = await Promise.all([arrivalRes.json(), shipmentRes.json()]);
+    const [arrivalJson, shipmentJson] = await Promise.all([gasJson(arrivalRes), gasJson(shipmentRes)]);
     invArrival = Array.isArray(arrivalJson.rows) ? arrivalJson.rows : [];
     invShipment = Array.isArray(shipmentJson.rows) ? shipmentJson.rows : [];
     invLoaded = true;
@@ -3304,7 +2798,7 @@ function renderShipExistingExtraPhotos(urls) {
 async function uploadShipmentPhoto(record, photo, kind = 'main', seq = 0) {
   const photoRes = await fetch(CFG.gasUrl, {
     method: 'POST',
-    body: JSON.stringify({
+    body: gasBody({
       action: 'uploadShipmentPhoto',
       recordId: record.id,
       customer: record.customer,
@@ -3316,7 +2810,7 @@ async function uploadShipmentPhoto(record, photo, kind = 'main', seq = 0) {
       seq
     })
   });
-  const photoJson = await photoRes.json();
+  const photoJson = await gasJson(photoRes);
   if (photoJson.ok && photoJson.url) return photoJson.url;
   console.warn('出貨照片上傳失敗:', photoJson.error || photoJson);
   return '';
@@ -3376,9 +2870,9 @@ async function saveShipment() {
 
     const res = await fetch(CFG.gasUrl, {
       method: 'POST',
-      body: JSON.stringify({ action: isEditing ? 'updateShipment' : 'addShipment', ...record })
+      body: gasBody({ action: isEditing ? 'updateShipment' : 'addShipment', ...record })
     });
-    const d = await res.json();
+    const d = await gasJson(res);
     if (d.ok !== true) throw new Error(d.error || '儲存失敗');
     const shouldAdvanceQueue = shipPhotoQueue.length > 0;
     resetShipEditMode({ preserveShipQueue: shouldAdvanceQueue });
@@ -3399,8 +2893,8 @@ async function fetchShipAndRefresh() {
   try {
     document.getElementById('shipSyncBadge').className = 'sync-badge syncing';
     document.getElementById('shipSyncLabel').textContent = '同步中…';
-    const res = await fetch(CFG.gasUrl + '?module=shipment');
-    const d = await res.json();
+    const res = await fetch(gasGetUrl('module=shipment'));
+    const d = await gasJson(res);
     if (!d.rows) throw new Error('格式錯誤');
     const grouped = {};
     d.rows.forEach(r => {
@@ -3755,9 +3249,9 @@ async function deleteShipRec(id) {
     showToast('刪除出貨記錄中…');
     const res = await fetch(CFG.gasUrl, {
       method: 'POST',
-      body: JSON.stringify({ action: 'deleteShipment', id, operator })
+      body: gasBody({ action: 'deleteShipment', id, operator })
     });
-    const d = await res.json();
+    const d = await gasJson(res);
     if (d.ok !== true) throw new Error(d.error || '刪除失敗');
     await fetchShipAndRefresh();
     showToast('已刪除出貨記錄', 'ok');
@@ -3784,13 +3278,20 @@ function resetShipEditMode(options = {}) {
 document.getElementById('f_date').value = today();
 addShipItem();
 loadBatchSet(); loadLocal(); loadQueueLocal();
+const hashImport = importAccessTokenFromHash();
 updateSettingsUI(); updateStats();
-if (offlineQueue.length) { showOfflineNotice(); flushQueue(); }
-// 2026-05-09 v6 修：開 app 一律 fetch 最新（不管 localStorage 有沒有舊資料），確保跨手機同步
-if (CFG.gasUrl) fetchAndRefresh();
+if (!CFG.accessToken) {
+  // 沒有存取碼：不去打 GAS（一定被擋），直接帶到設定頁
+  if (offlineQueue.length) showOfflineNotice();
+  setTimeout(() => { openTopSettings(); if (hashImport !== 'bad') showToast('請先輸入你的存取碼', 'err'); }, 400);
+} else {
+  if (offlineQueue.length) { showOfflineNotice(); flushQueue(); }
+  // 2026-05-09 v6 修：開 app 一律 fetch 最新（不管 localStorage 有沒有舊資料），確保跨手機同步
+  if (CFG.gasUrl) fetchAndRefresh();
+}
 // 從背景回到前景時也 fetch（員工切走再切回會看到最新）
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && CFG.gasUrl) fetchAndRefresh();
+  if (!document.hidden && CFG.gasUrl && CFG.accessToken) fetchAndRefresh();
 });
 if ('serviceWorker' in navigator) {
   // 2026-05-14 v7：強制檢查 SW 更新 + 偵測到新版自動 reload
